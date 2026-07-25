@@ -67,6 +67,46 @@
             font-size: 13px;
             cursor: pointer;
         }
+    /* ========================================= */
+        /* 📱 모바일 전용 화면 설정 (가로 너비 768px 이하일 때만 작동) */
+        /* ========================================= */
+        @media screen and (max-width: 768px) {
+            /* 1. 검색창: 화면 양옆 여백을 줄이고 검색칸을 넓게 쓰기 */
+            #search-box {
+                top: 10px; 
+                left: 10px; 
+                right: 10px;
+                width: auto; /* 고정된 너비 해제 */
+            }
+            #searchInput {
+                flex: 1; /* 남는 공간을 꽉 채우도록 설정 */
+                width: auto;
+            }
+
+            /* 2. 필터창: 가로로 길게 늘어선 메뉴들을 줄바꿈해서 정렬하기 */
+            #filter-box {
+                top: 70px; 
+                left: 10px; 
+                right: 10px;
+                flex-wrap: wrap; /* 화면이 좁으면 밑으로 자동 줄바꿈! 이게 핵심입니다. */
+            }
+            #filter-box select {
+                flex: 1 1 30%; /* 공간을 1/3씩 나눠 가져서 3개씩 정렬 */
+                font-size: 13px;
+                padding: 8px 4px; /* 손가락으로 터치하기 편하게 높이 키우기 */
+            }
+            
+            /* 3. 경계선 체크박스: 맨 아랫줄에 단독으로 넓게 자리 잡기 */
+            #filter-box label {
+                margin-left: 0 !important;
+                margin-top: 5px;
+                width: 100%;
+                justify-content: center; /* 가운데 정렬 */
+                background-color: #f8f9fa; /* 버튼처럼 보이게 살짝 색상 추가 */
+                padding: 8px;
+                border-radius: 4px;
+            }
+        }
     </style>
 </head>
 <body>
