@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>대구 초등학교 통합 지도</title>
+    <title>학교어디(대구초등학교맵)</title>
     
     <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=b5s4g3nfru"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -54,65 +54,65 @@
             left: 20px;
             z-index: 1000;
             background: white;
-            padding: 10px;
+            padding: 12px 15px; /* 상하 12px, 좌우 15px로 여백을 조금 더 줍니다 */
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             display: flex;
-            gap: 8px;
+            flex-wrap: wrap; /* 🌟 핵심 1: 공간이 부족하면 다음 줄로 자연스럽게 넘김 */
+            gap: 12px; /* 항목 사이의 간격을 살짝 넓혀 숨통을 틔워줍니다 */
+            max-width: 85vw; /* 🌟 너무 길어지지 않도록 화면 가로 넓이의 85%까지만 커지게 제한 */
+            align-items: center; /* 항목들의 세로 높낮이를 중앙으로 반듯하게 맞춤 */
         }
+        
         #filter-box select {
-            padding: 6px;
+            height: 34px; /* 🌟 모든 드롭다운의 높이를 34px로 고정 */
+            box-sizing: border-box; /* 패딩을 포함하여 크기 계산 */
+            padding: 4px 6px;
             border: 1px solid #D5D8DC;
             border-radius: 4px;
             font-size: 13px;
             cursor: pointer;
         }
-    /* ========================================= */
-        /* 📱 모바일 전용 화면 설정 (가로 너비 768px 이하일 때만 작동) */
-        /* ========================================= */
-        @media screen and (max-width: 768px) {
-            /* 1. 검색창: 화면 양옆 여백을 줄이고 검색칸을 넓게 쓰기 */
-            #search-box {
-                top: 10px; 
-                left: 10px; 
-                right: 10px;
-                width: auto; /* 고정된 너비 해제 */
-            }
-            #searchInput {
-                flex: 1; /* 남는 공간을 꽉 채우도록 설정 */
-                width: auto;
-            }
 
-            /* 2. 필터창: 가로로 길게 늘어선 메뉴들을 줄바꿈해서 정렬하기 */
-            #filter-box {
-                top: 70px; 
-                left: 10px; 
-                right: 10px;
-                flex-wrap: wrap; /* 화면이 좁으면 밑으로 자동 줄바꿈! 이게 핵심입니다. */
-            }
-            #filter-box select {
-                flex: 1 1 30%; /* 공간을 1/3씩 나눠 가져서 3개씩 정렬 */
-                font-size: 13px;
-                padding: 8px 4px; /* 손가락으로 터치하기 편하게 높이 키우기 */
-            }
-            
-            /* 3. 경계선 체크박스: 맨 아랫줄에 단독으로 넓게 자리 잡기 */
-            #filter-box label {
-                margin-left: 0 !important;
-                margin-top: 5px;
-                width: 100%;
-                justify-content: center; /* 가운데 정렬 */
-                background-color: #f8f9fa; /* 버튼처럼 보이게 살짝 색상 추가 */
-                padding: 8px;
-                border-radius: 4px;
-            }
+        /* 🌟 핵심 2: 필터 박스 안의 모든 덩어리들이 내부에서 줄바꿈(쪼그라듦)되지 않도록 강제 방지 */
+        #filter-box > * {
+            white-space: nowrap;
         }
+
+        /* 🌟 급지 체크박스 강제 커스텀 (모두 흰색 체크) */
+        .grade-cb {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 1px solid #D5D8DC;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 0;
+            background-color: white;
+            display: inline-block;
+        }
+        /* 체크되었을 때 하얀색 체크(SVG) 표시 */
+        .grade-cb:checked {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+            background-size: 80%;
+            background-position: center;
+            background-repeat: no-repeat;
+            border-color: transparent;
+        }
+        /* 각 급지별 배경색 지정 */
+        .cb-ga:checked { background-color: #3498DB; }
+        .cb-na:checked { background-color: #2ECC71; }
+        .cb-da:checked { background-color: #F1C40F; }
+        .cb-ra:checked { background-color: #E74C3C; }
     </style>
 </head>
 <body>
     <div id="search-box">
-        <input type="text" id="searchInput" placeholder="학교명 검색 (예: 남대구)" onkeypress="if(event.keyCode==13) searchSchool()">
+        <input type="text" id="searchInput" placeholder="학교명 검색 (예: 공산초)" onkeypress="if(event.keyCode==13) searchSchool()">
         <button id="searchBtn" onclick="searchSchool()">검색</button>
+        <!-- 🌟 새롭게 추가된 필터 접기/펴기 버튼 -->
+        <button id="toggleFilterBtn" onclick="toggleFilterPanel()" style="padding: 8px 16px; background: #7F8C8D; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: bold; margin-left: 10px;">▲ 세부검색</button>
     </div>
 
     <div id="filter-box">
@@ -125,21 +125,31 @@
             <option value="군위">군위</option>
         </select>
         
-        <select id="filter-grade" onchange="applyFilters()">
-            <option value="전체">급지: 전체</option>
-            <option value="가">🟦 가급지</option>
-            <option value="나">🟩 나급지</option>
-            <option value="다">🟨 다급지</option>
-            <option value="라">🟥 라급지</option>
-        </select>
+        <!-- 🌟 커스텀 박스들에 높이(34px) 일괄 적용 -->
+        <div id="filter-grade" style="display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #D5D8DC; border-radius: 4px; font-size: 13px; background: white; height: 34px; box-sizing: border-box;">
+            <span style="color: #555; font-weight: bold;">급지:</span>
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
+                <input type="checkbox" value="가" class="grade-cb cb-ga" checked onchange="applyFilters()">가
+            </label>
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
+                <input type="checkbox" value="나" class="grade-cb cb-na" checked onchange="applyFilters()">나
+            </label>
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
+                <input type="checkbox" value="다" class="grade-cb cb-da" checked onchange="applyFilters()">다
+            </label>
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
+                <input type="checkbox" value="라" class="grade-cb cb-ra" checked onchange="applyFilters()">라
+            </label>
+        </div>
 
         <select id="filter-research" onchange="applyFilters()">
-            <option value="운영">연구학교: 운영</option>
-            <option value="미운영">연구학교: 미운영</option>
+            <option value="미설정">연구학교: 미설정</option>
+            <option value="지정교">연구학교: 지정교</option>
+            <option value="미지정교">연구학교: 미지정교</option>
         </select>
         
         <select id="filter-ib" onchange="applyFilters()">
-            <option value="전체">IB학교: 전체</option>
+            <option value="미설정">IB학교: 미설정</option>
             <option value="운영">운영중 (전체)</option>
             <option value="관심">관심학교</option>
             <option value="후보">후보학교</option>
@@ -147,12 +157,29 @@
         </select>
         
         <select id="filter-future" onchange="applyFilters()">
-            <option value="운영">미래학교: 운영</option>
-            <option value="미운영">미래학교: 미운영</option>
+            <option value="미설정">미래학교: 미설정</option>
+            <option value="지정교">미래학교: 지정교</option>
+            <option value="미지정교">미래학교: 미지정교</option>
         </select>
 
-        <label style="margin-left: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center;">
-            <input type="checkbox" id="toggle-boundary" checked onchange="toggleBoundaries()"> 🗺️ 구역 경계선 보기
+        <div style="display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #3498DB; border-radius: 4px; font-size: 13px; background: #EAF2F8; margin-left: 5px; height: 34px; box-sizing: border-box;">
+            <span style="color: #2980B9; font-weight: bold;">검색조건:</span>
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
+                <input type="radio" name="filter-mode" value="and" checked onchange="applyFilters()"> 모두 만족(교집합)
+            </label>
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
+                <input type="radio" name="filter-mode" value="or" onchange="applyFilters()"> 하나라도(합집합)
+            </label>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #D5D8DC; border-radius: 4px; font-size: 13px; background: white; margin-left: 5px; height: 34px; box-sizing: border-box;">
+            <span style="color: #555; font-weight: bold;">학급수(이상):</span>
+            <input type="range" id="filter-class-count" min="1" max="70" value="1" oninput="updateClassCountDisplay()" onchange="applyFilters()" style="width: 80px; accent-color: #3498DB; cursor: pointer;">
+            <span id="class-count-display" style="font-weight: bold; color: #2980B9; width: 20px; text-align: right;">1</span><span>학급</span>
+        </div>
+
+        <label style="margin-left: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; height: 34px;">
+            <input type="checkbox" id="toggle-boundary" checked onchange="toggleBoundaries()"> 🗺️ 교육지원청 구역 경계선
         </label>
     </div>
     
@@ -288,7 +315,7 @@
             `;
         }
 
-        var csvUrl = "https://raw.githubusercontent.com/1-Ryu/SchoolMap/refs/heads/main/data/%EB%8C%80%EA%B5%AC%EC%B4%88%EB%93%B1%ED%95%99%EA%B5%90_%EB%8D%B0%EC%9D%B4%ED%84%B0_%EC%A2%8C%ED%91%9C%EC%99%84%EB%A3%8C.csv";
+        var csvUrl = "../data/대구초등학교_데이터_좌표완료.csv";
 
         Papa.parse(csvUrl, {
             download: true,
@@ -313,10 +340,18 @@
                             }
                         });
 
-                        var r_topic = school['research_topic'] || '-';
-                        var r_year = school['research_year'] ? `(${school['research_year']}/${school['research_total_years']}년차)` : '';
-                        var ib = school['ib_stage'] || '-';
-                        var f_year = school['future_year'] ? `${school['future_year']}/${school['future_total_years']}년차` : '-';
+                        var hasResearch = school['research_topic'] !== null && school['research_topic'] !== undefined && String(school['research_topic']).trim() !== "" && String(school['research_topic']) !== "-";
+                        var researchText = hasResearch ? `${school['research_topic']} <span style="font-size:11px; color:#E74C3C;">(${school['research_year']}/${school['research_total_years']}년차)</span>` : "-";
+
+                        // 2. IB학교 텍스트 처리
+                        var hasIB = school['ib_stage'] !== null && school['ib_stage'] !== undefined && String(school['ib_stage']).trim() !== "" && String(school['ib_stage']) !== "-";
+                        var ibText = hasIB ? school['ib_stage'] : "-";
+
+                        // 3. 미래학교 텍스트 처리
+                        var hasFuture = (school['future_total_years'] !== null && school['future_total_years'] !== undefined && String(school['future_total_years']).trim() !== "" && String(school['future_total_years']) !== "-") ||
+                                        (school['future_year'] !== null && school['future_year'] !== undefined && String(school['future_year']).trim() !== "" && String(school['future_year']) !== "-");
+                        var futureText = hasFuture ? `${school['future_year']}/${school['future_total_years']}년차` : "-";
+
                         var dist = school['district'] || '-';
                         var gr = school['grade_class'] ? school['grade_class'] + '급지' : '-';
 
@@ -328,7 +363,7 @@
                                     
                                     <table style="width: 100%; font-size: 13px; border-collapse: collapse; text-align: left;">
                                         <tr style="border-bottom: 1px solid #eee;">
-                                            <th style="padding: 5px 0; color:#34495E; width: 35%;">관할/급지</th>
+                                            <th style="padding: 5px 0; color:#34495E; width: 35%;">교육지원청/급지</th>
                                             <td style="padding: 5px 0; color:#2980B9; font-weight:bold;">${dist} / ${gr}</td>
                                         </tr>
                                         <tr style="border-bottom: 1px solid #eee;">
@@ -337,15 +372,15 @@
                                         </tr>
                                         <tr style="border-bottom: 1px solid #eee;">
                                             <th style="padding: 5px 0; color:#34495E;">연구학교</th>
-                                            <td style="padding: 5px 0;">${r_topic} <span style="font-size:11px; color:#E74C3C;">${r_year}</span></td>
+                                            <td style="padding: 5px 0;">${researchText}</td>
                                         </tr>
                                         <tr style="border-bottom: 1px solid #eee;">
-                                            <th style="padding: 5px 0; color:#34495E;">IB 단계</th>
-                                            <td style="padding: 5px 0;">${ib}</td>
+                                            <th style="padding: 5px 0; color:#34495E;">IB학교</th>
+                                            <td style="padding: 5px 0;">${ibText}</td>
                                         </tr>
                                         <tr>
                                             <th style="padding: 5px 0; color:#34495E;">미래학교</th>
-                                            <td style="padding: 5px 0;">${f_year}</td>
+                                            <td style="padding: 5px 0;">${futureText}</td>
                                         </tr>
                                     </table>
                                 </div>
@@ -376,7 +411,11 @@
                 alert("데이터 파일을 불러올 수 없습니다.");
             }
         });
-
+// 🌟 슬라이더를 움직일 때 숫자를 실시간으로 바꿔주는 함수
+        function updateClassCountDisplay() {
+            var val = document.getElementById("filter-class-count").value;
+            document.getElementById("class-count-display").innerText = val;
+        }
         function searchSchool() {
             var keyword = document.getElementById("searchInput").value.trim();
             if (!keyword) {
@@ -401,34 +440,105 @@
                 alert("'" + keyword + "' 학교를 찾을 수 없습니다.");
             }
         }
-
+// 🌟 필터창 접기/펴기 기능
+        function toggleFilterPanel() {
+            var filterBox = document.getElementById('filter-box');
+            var btn = document.getElementById('toggleFilterBtn');
+            
+            if (filterBox.style.display === 'none') {
+                filterBox.style.display = 'flex'; // 다시 보이게 함
+                btn.innerText = '▲ 세부검색';
+                btn.style.background = '#7F8C8D'; // 닫기 상태일 땐 무난한 회색
+            } else {
+                filterBox.style.display = 'none'; // 숨김 처리
+                btn.innerText = '▼ 세부검색';
+                btn.style.background = '#2ECC71'; // 열라고 유도하는 초록색
+            }
+        }
+        // 🌟 완벽하게 업그레이드된 필터링 로직 (AND/OR 스위치 + 학급수 슬라이더 적용)
         function applyFilters() {
             var f_dist = document.getElementById("filter-district").value;
-            var f_grade = document.getElementById("filter-grade").value;
+            
+            // 1. 급지 체크박스 상태 수집
+            var gradeCheckboxes = document.querySelectorAll('#filter-grade input[type="checkbox"]');
+            var selectedGrades = [];
+            gradeCheckboxes.forEach(function(cb) {
+                if (cb.checked) selectedGrades.push(cb.value);
+            });
+
             var f_research = document.getElementById("filter-research").value;
             var f_ib = document.getElementById("filter-ib").value;
             var f_future = document.getElementById("filter-future").value;
+            
+            // 라디오 버튼에서 현재 모드(교집합: and, 합집합: or) 가져오기
+            var filterMode = document.querySelector('input[name="filter-mode"]:checked').value;
+            
+           // 🌟 슬라이더에서 사용자가 설정한 '최소 학급수' 가져오기 (변수명도 min으로 변경)
+            var minClassCount = parseInt(document.getElementById("filter-class-count").value, 10);
 
             for (var schoolName in schoolDataMap) {
                 var target = schoolDataMap[schoolName];
                 var data = target.rawData;
                 var isMatch = true;
 
+                // 🛑 1단계: 기본 관문 (지원청, 급지, 학급수) - 무조건 교집합(AND)
                 if (f_dist !== "전체" && data['district'] !== f_dist) isMatch = false;
-                if (f_grade !== "전체" && data['grade_class'] !== f_grade) isMatch = false;
-// 3. 연구학교 거르기 (공백, null, 빈 문자열까지 완벽하게 잡아내는 정밀 검증)
-                var hasResearch = data['research_topic'] !== null && data['research_topic'] !== undefined && String(data['research_topic']).trim() !== "" && String(data['research_topic']) !== "-";
+                if (data['grade_class'] && !selectedGrades.includes(data['grade_class'])) isMatch = false;
                 
-                if (f_research === "운영" && !hasResearch) isMatch = false;
-                if (f_research === "미운영" && hasResearch) isMatch = false;
-                if (f_ib === "운영" && !data['ib_stage']) isMatch = false;
-                if (f_ib !== "전체" && f_ib !== "운영" && data['ib_stage'] !== f_ib) isMatch = false;
-                // 5. 미래학교 거르기 (future_total_years 또는 future_year 값 유무를 정밀 검증)
-                var hasFuture = (data['future_total_years'] !== null && data['future_total_years'] !== undefined && String(data['future_total_years']).trim() !== "" && String(data['future_total_years']) !== "-") ||
-                                (data['future_year'] !== null && data['future_year'] !== undefined && String(data['future_year']).trim() !== "" && String(data['future_year']) !== "-");
+                // 🌟 변경된 로직: 학교의 전체 학급수가 슬라이더 값(최소 학급수)보다 '작으면' 숨김 처리
+                var schoolClassTotal = parseInt(data['class_total'], 10);
+                if (!isNaN(schoolClassTotal) && schoolClassTotal < minClassCount) {
+                    isMatch = false;
+                }
 
-                if (f_future === "운영" && !hasFuture) isMatch = false;
-                if (f_future === "미운영" && hasFuture) isMatch = false;
+                // 🛑 2단계: 특수 관문 (연구, IB, 미래) - 스위치(AND/OR) 논리 적용
+                if (isMatch) {
+                    var specialActiveCount = 0; 
+                    var specialPassCount = 0;   
+
+                    // ① 연구학교 검사
+                    if (f_research !== "미설정") {
+                        specialActiveCount++;
+                        var hasResearch = data['research_topic'] !== null && data['research_topic'] !== undefined && String(data['research_topic']).trim() !== "" && String(data['research_topic']) !== "-";
+                        if ((f_research === "지정교" && hasResearch) || (f_research === "미지정교" && !hasResearch)) {
+                            specialPassCount++;
+                        }
+                    }
+
+                    // ② IB학교 검사
+                    if (f_ib !== "미설정") {
+                        specialActiveCount++;
+                        var hasIB = data['ib_stage'] !== null && data['ib_stage'] !== undefined && String(data['ib_stage']).trim() !== "" && String(data['ib_stage']) !== "-";
+                        var passIB = false;
+                        if (f_ib === "운영") passIB = hasIB;
+                        else passIB = (hasIB && String(data['ib_stage']).includes(f_ib));
+                        
+                        if (passIB) {
+                            specialPassCount++;
+                        }
+                    }
+
+                    // ③ 미래학교 검사
+                    if (f_future !== "미설정") {
+                        specialActiveCount++;
+                        var hasFuture = (data['future_total_years'] !== null && data['future_total_years'] !== undefined && String(data['future_total_years']).trim() !== "" && String(data['future_total_years']) !== "-") ||
+                                        (data['future_year'] !== null && data['future_year'] !== undefined && String(data['future_year']).trim() !== "" && String(data['future_year']) !== "-");
+                        if ((f_future === "지정교" && hasFuture) || (f_future === "미지정교" && !hasFuture)) {
+                            specialPassCount++;
+                        }
+                    }
+
+                    // 🌟 최종 판결 로직
+                    if (specialActiveCount > 0) {
+                        if (filterMode === 'and') {
+                            if (specialPassCount < specialActiveCount) isMatch = false;
+                        } else if (filterMode === 'or') {
+                            if (specialPassCount === 0) isMatch = false;
+                        }
+                    }
+                }
+
+                // 🛑 3단계: 화면에 그리기
                 if (isMatch) {
                     target.marker.setMap(map);
                 } else {
@@ -437,6 +547,16 @@
                 }
             }
         }
+        // 🌟 지도 빈 공간 클릭 시 열려있는 모든 팝업창(말풍선) 닫기
+        naver.maps.Event.addListener(map, 'click', function(e) {
+            for (var schoolName in schoolDataMap) {
+                var infoWindow = schoolDataMap[schoolName].infoWindow;
+                // 만약 정보창이 현재 지도 위에 열려있다면 닫기
+                if (infoWindow.getMap()) {
+                    infoWindow.close();
+                }
+            }
+        });
     </script>
 </body>
 </html>
