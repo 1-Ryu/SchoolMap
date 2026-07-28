@@ -26,11 +26,14 @@
         }
         #searchInput {
             padding: 8px 12px;
-            width: 220px;
+            width: 100%; /* 🌟 모바일에서 유연하게 반응하도록 변경 */
+            max-width: 220px;
             border: 1px solid #D5D8DC;
             border-radius: 4px;
             font-size: 14px;
             outline: none;
+            flex-shrink: 1; /* 🌟 공간이 좁아지면 입력창이 양보해서 줄어듦 */
+            min-width: 0;
         }
         #searchInput:focus {
             border-color: #3498DB;
@@ -44,6 +47,8 @@
             font-size: 14px;
             cursor: pointer;
             font-weight: bold;
+            white-space: nowrap; /* 🌟 글자 줄바꿈 강제 방지 */
+            flex-shrink: 0; /* 🌟 공간이 좁아져도 버튼 크기 유지 */
         }
         #searchBtn:hover {
             background: #2980B9;
@@ -105,14 +110,38 @@
         .cb-na:checked { background-color: #2ECC71; }
         .cb-da:checked { background-color: #F1C40F; }
         .cb-ra:checked { background-color: #E74C3C; }
+
+        /* 🌟 스마트폰(모바일) 화면을 위한 반응형 디자인 추가 */
+        @media (max-width: 768px) {
+            #search-box {
+                top: 10px;
+                left: 10px;
+                right: 10px; /* 화면 가로에 꽉 차도록 여백 조정 */
+                padding: 10px;
+                gap: 5px;
+            }
+            #filter-box {
+                top: 65px; /* 검색창과 겹치지 않도록 모바일에서는 조금 더 아래로 띄움 */
+                left: 10px;
+                right: 10px; /* 가로 길이를 화면에 맞춤 */
+                max-width: none;
+                max-height: 50vh; /* 🌟 핵심: 필터창이 스마트폰 화면 높이의 50%를 넘지 못하게 제한 */
+                overflow-y: auto; /* 🌟 내용이 많으면 박스 안에서 세로로 스크롤되도록 설정 */
+                padding: 10px;
+                gap: 8px;
+            }
+            #filter-box select, #filter-grade, .grade-cb {
+                font-size: 12px; /* 모바일에서는 글자를 살짝 줄여서 공간 확보 */
+            }
+        }
     </style>
 </head>
 <body>
     <div id="search-box">
         <input type="text" id="searchInput" placeholder="학교명 검색 (예: 공산초)" onkeypress="if(event.keyCode==13) searchSchool()">
         <button id="searchBtn" onclick="searchSchool()">검색</button>
-        <!-- 🌟 새롭게 추가된 필터 접기/펴기 버튼 -->
-        <button id="toggleFilterBtn" onclick="toggleFilterPanel()" style="padding: 8px 16px; background: #7F8C8D; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: bold; margin-left: 10px;">▲ 세부검색</button>
+        <!-- 🌟 버튼 스타일에 white-space: nowrap; flex-shrink: 0; 추가, 불필요한 여백 제거 -->
+        <button id="toggleFilterBtn" onclick="toggleFilterPanel()" style="padding: 8px 16px; background: #7F8C8D; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: bold; white-space: nowrap; flex-shrink: 0;">▲ 세부검색</button>
     </div>
 
     <div id="filter-box">
@@ -179,7 +208,7 @@
         </div>
 
         <label style="margin-left: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; height: 34px;">
-            <input type="checkbox" id="toggle-boundary" checked onchange="toggleBoundaries()"> 🗺️ 교육지원청 구역 경계선
+            <input type="checkbox" id="toggle-boundary" onchange="toggleBoundaries()"> 🗺️ 교육지원청 구역 경계선
         </label>
     </div>
     
@@ -232,8 +261,11 @@
                             return new naver.maps.LatLng(coord[1], coord[0]);
                         });
 
+                        // 🌟 현재 체크박스가 체크되어 있는지 확인 (기본값은 해제 상태)
+                        var isChecked = document.getElementById('toggle-boundary').checked;
+
                         var polygon = new naver.maps.Polygon({
-                            map: map,
+                            map: isChecked ? map : null, // 🌟 체크 해제 상태면 지도를 그릴 때 null로 처리하여 숨김
                             paths: [path], 
                             fillColor: color,
                             fillOpacity: 0.15,
@@ -315,7 +347,7 @@
             `;
         }
 
-        var csvUrl = "https://raw.githubusercontent.com/1-Ryu/SchoolMap/refs/heads/main/data/%EB%8C%80%EA%B5%AC%EC%B4%88%EB%93%B1%ED%95%99%EA%B5%90_%EB%8D%B0%EC%9D%B4%ED%84%B0_%EC%A2%8C%ED%91%9C%EC%99%84%EB%A3%8C.csv";
+        var csvUrl = "../data/대구초등학교_데이터_좌표완료.csv";
 
         Papa.parse(csvUrl, {
             download: true,
