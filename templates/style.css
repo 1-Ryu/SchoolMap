@@ -158,12 +158,32 @@ body, html { margin: 0; padding: 0; height: 100%; }
     #filter-box > label[style*="margin-left"] {
         margin-left: 0 !important;
     }
-    /* 학급수와 지원청 구역이 한 줄에 들어가도록 슬라이더를 줄인다. */
-    #filter-class-count {
-        width: 52px !important;
-    }
-    /* 아주 좁은 기종에서도 줄이 깨지지 않게, 모자랄 때만 줄어들 수 있게 둔다. */
-    #filter-district, #filter-grade {
+    /* 2줄(연구·IB·미래)의 3등분 격자에 나머지 줄의 끝선을 맞춘다.
+       한 칸 = (전체폭 - 간격 2개) / 3 */
+    #filter-district {
+        flex: 0 0 calc((100% - 16px) / 3);   /* 끝선 = 연구학교 끝 */
         min-width: 0;
+    }
+    #filter-grade {
+        flex: 1 1 auto;                       /* IB 시작 ~ 미래학교 끝 */
+        min-width: 0;
+    }
+    .filter-mode-box {
+        flex: 1 1 100%;                       /* 한 줄 전체 */
+        min-width: 0;
+    }
+    .filter-class-box {
+        /* 기준 폭을 0으로 둬야 지원청 구역을 다음 줄로 밀지 않고, 남는 자리만 채운다 */
+        flex: 1 1 0;
+        min-width: 0;
+    }
+    .filter-boundary {
+        flex: 0 0 auto;                       /* 끝선 = 검색조건 끝 */
+    }
+    /* 넓어진 학급수 칸에 맞춰 슬라이더도 함께 늘린다. */
+    #filter-class-count {
+        flex: 1 1 auto;
+        width: auto !important;
+        min-width: 40px;
     }
 }

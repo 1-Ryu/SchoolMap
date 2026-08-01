@@ -82,7 +82,7 @@
 
         <div class="filter-break"></div>
 
-        <div style="display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #3498DB; border-radius: 4px; font-size: 13px; background: #EAF2F8; margin-left: 5px; height: 34px; box-sizing: border-box;">
+        <div class="filter-mode-box" style="display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #3498DB; border-radius: 4px; font-size: 13px; background: #EAF2F8; margin-left: 5px; height: 34px; box-sizing: border-box;">
             <span style="color: #2980B9; font-weight: bold;">검색조건:</span>
             <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
                 <input type="radio" name="filter-mode" value="and" checked onchange="applyFilters()"> 모두 만족(교집합)
@@ -94,13 +94,13 @@
 
         <div class="filter-break"></div>
 
-        <div style="display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #D5D8DC; border-radius: 4px; font-size: 13px; background: white; margin-left: 5px; height: 34px; box-sizing: border-box;">
+        <div class="filter-class-box" style="display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #D5D8DC; border-radius: 4px; font-size: 13px; background: white; margin-left: 5px; height: 34px; box-sizing: border-box;">
             <span style="color: #555; font-weight: bold;">학급수(이상):</span>
             <input type="range" id="filter-class-count" min="1" max="70" value="1" oninput="updateClassCountDisplay()" onchange="applyFilters()" style="width: 80px; accent-color: #3498DB; cursor: pointer;">
             <span id="class-count-display" style="font-weight: bold; color: #2980B9; width: 20px; text-align: right;">1</span><span>학급</span>
         </div>
 
-        <label style="margin-left: 13px; font-weight: bold; cursor: pointer; display: flex; align-items: center; height: 34px;">
+        <label class="filter-boundary" style="margin-left: 13px; font-weight: bold; cursor: pointer; display: flex; align-items: center; height: 34px;">
             <input type="checkbox" id="toggle-boundary" onchange="toggleBoundaries()"> 지원청 구역
         </label>
     </div>
