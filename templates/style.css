@@ -13,6 +13,13 @@ body, html { margin: 0; padding: 0; height: 100%; }
     .marker-fade { animation: none; }
 }
 
+/* 지도를 끌면 그 위 마커들이 매 프레임 다시 칠해지는데, 같은 레이어에 얹힌 검색창까지
+   함께 끌려들어가 깜빡여 보인다. 별도 GPU 레이어로 올려 지도와 분리한다. */
+#search-box, #filter-box {
+    transform: translateZ(0);
+    will-change: transform;
+}
+
 #search-box {
     position: absolute;
     top: 20px;
