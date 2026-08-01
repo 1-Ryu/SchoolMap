@@ -177,6 +177,37 @@ function syncSchoolMarkers() {
     });
 
     shownSchools = next;
+    lastSync = { lat: map.getCenter().lat(), lng: map.getCenter().lng(), zoom: map.getZoom() };
+}
+
+// 지도를 조금만 움직여도 매번 233개를 훑고 마커를 붙였다 떼면, 폰에서는 손가락을 뗀
+// 직후에 화면이 멈칫한다. 화면 밖 여유분(25%)을 절반쯤 소진했을 때만 다시 계산한다.
+var lastSync = null;
+
+function needsSync() {
+    if (!lastSync || lastSync.zoom !== map.getZoom()) return true;
+
+    var b = map.getBounds(), sw = b.getSW(), ne = b.getNE();
+    var c = map.getCenter();
+    return Math.abs(c.lat() - lastSync.lat) > (ne.lat() - sw.lat()) * 0.12 ||
+           Math.abs(c.lng() - lastSync.lng) > (ne.lng() - sw.lng()) * 0.12;
+}
+
+// 이동이 끝나는 순간은 사용자가 화면을 가장 주시하는 때다. 그 프레임을 붙잡지 않도록
+// 한가할 때로 미룬다. (마커가 조금 늦게 채워지는 편이 멈칫하는 것보다 낫다)
+var syncScheduled = false;
+
+function scheduleSchoolSync() {
+    if (syncScheduled) return;
+    syncScheduled = true;
+
+    var run = function() {
+        syncScheduled = false;
+        if (currentLevel() === 'school') syncSchoolMarkers();
+    };
+
+    if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 300 });
+    else setTimeout(run, 0);
 }
 
 function hideAllSchools() {
@@ -188,15 +219,17 @@ function renderMarkers(force) {
     var level = currentLevel();
     var levelChanged = level !== renderedLevel;
 
-    // 학교 단계에서는 이동·확대로 보이는 범위가 계속 바뀌므로 매번 맞춰준다.
-    // (차이만 갱신하니 비용이 거의 없다)
+    // 학교 단계에서는 이동·확대로 보이는 범위가 계속 바뀌므로 맞춰준다.
+    // 단계가 바뀌거나 필터가 바뀐 때는 바로, 단순 이동은 미뤄서 처리한다.
     if (level === 'school') {
         if (levelChanged) {
             clusterMarkers.forEach(function(m) { m.setMap(null); });
             clusterMarkers = [];
         }
         renderedLevel = level;
-        syncSchoolMarkers();
+
+        if (force || levelChanged) syncSchoolMarkers();
+        else if (needsSync()) scheduleSchoolSync();
         return;
     }
 
@@ -460,8 +493,8 @@ function searchSchool() {
             var target = schoolDataMap[schoolName];
             map.setCenter(target.marker.getPosition());
             map.setZoom(15);
-            // 마커 교체는 idle(움직임 종료) 시점이라, 검색은 팝업을 열기 전에 직접 갱신해준다.
-            renderMarkers();
+            // 마커 교체는 미뤄서 처리되므로, 검색은 팝업을 열기 전에 즉시 갱신해준다.
+            renderMarkers(true);
             target.infoWindow.open(map, target.marker);
             found = true;
             break;
