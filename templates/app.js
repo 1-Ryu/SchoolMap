@@ -567,7 +567,8 @@ function applyFilters() {
                 specialActiveCount++;
                 var hasIB = data['ib_stage'] !== null && data['ib_stage'] !== undefined && String(data['ib_stage']).trim() !== "" && String(data['ib_stage']) !== "-";
                 var passIB = false;
-                if (f_ib === "운영") passIB = hasIB;
+                if (f_ib === "지정교") passIB = hasIB;
+                else if (f_ib === "미지정교") passIB = !hasIB;
                 else passIB = (hasIB && String(data['ib_stage']).includes(f_ib));
                 
                 if (passIB) {
