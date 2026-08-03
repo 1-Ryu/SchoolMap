@@ -403,7 +403,7 @@ Papa.parse(csvUrl, {
 
                 var infoWindow = new naver.maps.InfoWindow({
                     content: `
-                        <div style="width:280px; padding:15px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.3); font-family:sans-serif;">
+                        <div class="iw-body" style="width:280px; padding:15px; border-radius:8px; font-family:sans-serif;">
                             <h3 style="margin:0 0 5px 0; color:#2C3E50; font-size:16px;">${name}</h3>
                             <p style="margin:0 0 12px 0; font-size:12px; color:#7F8C8D;">${school['address'] || ''}</p>
                             
