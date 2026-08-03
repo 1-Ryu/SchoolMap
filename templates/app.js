@@ -92,7 +92,7 @@ var visibleEntries = [];
 var clusterMarkers = [];
 
 var ZOOM_DISTRICT = 11;
-var ZOOM_SCHOOL = 12;
+var ZOOM_SCHOOL = 13;
 
 var DISTRICT_COLORS = {
     '동부': '#3498DB',
