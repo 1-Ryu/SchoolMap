@@ -77,6 +77,14 @@ body {
 #mapstat.ok { color: #6EE7A8; }
 #mapstat.bad { color: #FFA9A0; }
 
+#fillBtn {
+    border: 0; cursor: pointer; white-space: nowrap;
+    font: 600 10px/1 inherit; padding: 6px 10px; border-radius: 999px;
+    background: rgba(18, 20, 26, .82); color: rgba(255,255,255,.55);
+    backdrop-filter: blur(12px);
+}
+#fillBtn.on { background: #fff; color: #12141A; }
+
 /* ─── 상단 검색·필터 바 ────────────────────────────────────── */
 #topbar {
     position: absolute; z-index: 900;
@@ -344,6 +352,14 @@ body {
 .route .ghost { border: 1px solid var(--line); background: var(--surface); color: var(--text); }
 .route-cap { margin: 8px 0 0; font-size: 11px; color: var(--text-3); text-align: center; }
 
+/* 앞으로 채워질 자리를 흉내 낸 임시 내용. 스크롤 감각 확인이 끝나면 지운다. */
+.sect { margin: 0 0 8px; padding-left: 2px; font-size: 12px; font-weight: 600; color: var(--text-3); letter-spacing: -.01em; }
+.dummy-cap {
+    margin: 0 0 var(--gap); padding: 8px 12px; border-radius: var(--r-badge);
+    background: var(--chip-bg); color: var(--text-3);
+    font-size: 11px; text-align: center; line-height: 1.5;
+}
+
 /* ══════════════════════════════════════════════════════════════
    시안 A — 정갈한 미니멀
    ══════════════════════════════════════════════════════════════ */
@@ -526,6 +542,7 @@ body {
         <button data-set="c">C</button>
     </div>
     <div id="mapstat">지도 확인 중…</div>
+    <button id="fillBtn">더미 내용 켜기</button>
 </div>
 
 <div id="scrim"></div>
@@ -563,6 +580,7 @@ body {
 
         <div class="stats" id="sStats"></div>
         <div class="rows" id="sRows"></div>
+        <div id="sExtra"></div>
 
         <div class="route">
             <button class="primary">
@@ -714,6 +732,60 @@ function markerEl(m) {
     return el ? el.querySelector('.mk') || el : null;
 }
 
+/* ── 스크롤 확인용 임시 내용 ──────────────────────────────────
+   앞으로 학교알리미 등에서 채워질 항목을 흉내 낸 것이다. 값은 학급수에서
+   적당히 만들어낸 가짜다. 지금 스크롤 감각을 확인하려는 목적뿐이라,
+   확인이 끝나면 이 함수와 우상단 버튼을 통째로 지우면 된다. */
+var fillMode = false;
+var currentSchool = null;
+
+function extraHTML(s) {
+    if (!fillMode) return '';
+
+    var stu = Math.round(s.ct * 23.4);
+    var per = (stu / Math.max(1, s.cr)).toFixed(1);
+    var tea = Math.round(s.ct * 1.35) + 6;
+
+    function block(title, rows) {
+        return '<p class="sect">' + title + '</p><div class="rows">' +
+            rows.map(function(r) {
+                return '<div class="row"><div class="k">' + r[0] + '</div><div class="v">' + r[1] + '</div></div>';
+            }).join('') + '</div>';
+    }
+
+    return '<p class="dummy-cap">아래는 스크롤 감각을 확인하려고 넣은 예시입니다.<br>실제 값이 아니며 확인 후 삭제합니다.</p>' +
+        block('학생 현황', [
+            ['전교생', stu + '명'],
+            ['학급당', per + '명<small>대구 평균 22.1명</small>'],
+            ['3년 추이', Math.round(stu * 1.09) + ' → ' + Math.round(stu * 1.04) + ' → ' + stu + '명<small>감소</small>']
+        ]) +
+        block('교직원', [
+            ['교원 수', tea + '명'],
+            ['교원 1인당', (stu / tea).toFixed(1) + '명'],
+            ['평균 근속', '3.2년'],
+            ['보건·영양·사서', '3명']
+        ]) +
+        block('운영', [
+            ['급식', '직영 · 조리실 보유'],
+            ['돌봄교실', '2실 운영'],
+            ['방과후', '14개 프로그램'],
+            ['특수학급', s.cs > 0 ? s.cs + '학급' : '없음']
+        ]) +
+        block('통학·주변', [
+            ['통학구역', s.a.split(' ')[1] + ' 일대'],
+            ['가까운 역', '도보 12분'],
+            ['버스 노선', '4개 정류장 경유'],
+            ['주차', '교직원 28면']
+        ]) +
+        block('시설', [
+            ['개교', '1982년'],
+            ['건물', '본관 4층 · 별관 2층'],
+            ['운동장', '우레탄 트랙'],
+            ['체육관', '보유'],
+            ['수영장', '없음']
+        ]);
+}
+
 /* ── 시트 내용 채우기 ─────────────────────────────────────── */
 function fill(s) {
     document.getElementById('sName').textContent = s.n.replace(/\((국립|사립)\)/, '');
@@ -749,6 +821,9 @@ function fill(s) {
         row('IB', has(s.ib), s.ib + '학교') +
         row('미래학교', has(s.fn), has(s.fy) ? s.fy + '/' + s.fn + '년차' : s.fn + '년') +
         row('학급 규모', true, size + '<small>대구 초등 평균 19학급</small>');
+
+    currentSchool = s;
+    document.getElementById('sExtra').innerHTML = extraHTML(s);
 }
 
 function select(s, m) {
@@ -773,7 +848,8 @@ var H = 0, isOpen = false, y = 0;
 function isWide() { return window.matchMedia('(min-width: 880px)').matches; }
 function measure() { H = sheet.offsetHeight; }
 measure();
-window.addEventListener('resize', function() { measure(); if (isOpen) settle(true, false); });
+// 닫혀 있을 때도 위치를 다시 잡아야 한다. 안 그러면 어긋난 채로 남는다.
+window.addEventListener('resize', function() { measure(); settle(isOpen, false); });
 
 function setY(v) {
     y = v;
@@ -786,7 +862,11 @@ function settle(openState, animate) {
     if (isWide()) {
         sheet.style.transform = openState ? 'translateX(0)' : 'translateX(calc(-100% - 32px))';
     } else {
-        setY(openState ? 0 : H);
+        // 닫은 위치를 픽셀로 굳히면 안 된다. 폰에서 주소창이 숨겨지면 화면이 커지고
+        // 시트(92vh)도 함께 커지는데, 내려둔 거리는 그대로라 아래에 띠가 남는다.
+        // 자기 높이 기준 100%는 높이가 어떻게 변하든 항상 정확히 숨겨준다.
+        sheet.style.transform = openState ? 'translateY(0)' : 'translateY(100%)';
+        y = openState ? 0 : sheet.offsetHeight;
     }
     scrim.classList.toggle('show', openState);
     sheet.setAttribute('aria-hidden', openState ? 'false' : 'true');
@@ -795,7 +875,11 @@ function settle(openState, animate) {
 
 function open() {
     measure();
-    if (!isOpen) { sheet.classList.remove('animate'); setY(H); void sheet.offsetHeight; }
+    if (!isOpen) {
+        sheet.classList.remove('animate');
+        sheet.style.transform = 'translateY(100%)';
+        void sheet.offsetHeight;
+    }
     requestAnimationFrame(function() { settle(true, true); });
 }
 function close() {
@@ -910,6 +994,13 @@ var distRange = document.getElementById('distRange');
 distRange.addEventListener('input', function() {
     document.getElementById('distVal').textContent =
         distRange.value >= 30 ? '제한 없음' : distRange.value + 'km';
+});
+
+document.getElementById('fillBtn').addEventListener('click', function() {
+    fillMode = !fillMode;
+    this.classList.toggle('on', fillMode);
+    this.textContent = fillMode ? '더미 내용 끄기' : '더미 내용 켜기';
+    if (currentSchool) fill(currentSchool);
 });
 
 /* ── 시안 전환 ─────────────────────────────────────────────── */
