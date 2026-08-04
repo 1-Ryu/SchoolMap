@@ -206,13 +206,7 @@ body {
 
 /* ─── 마커 ─────────────────────────────────────────────────── */
 .mk { cursor: pointer; }
-.mk-dot {                       /* 시안 A */
-    width: 14px; height: 14px; border-radius: 50%;
-    background: var(--mk); border: 3px solid #fff;
-    box-shadow: 0 1px 5px rgba(16,24,40,.28);
-    transition: transform .18s cubic-bezier(.34,1.56,.64,1);
-}
-/* 시안 B — 뾰족한 모서리(왼쪽 아래)를 -45도 돌려 아래로 세운다.
+/* 뾰족한 모서리(왼쪽 아래)를 -45도 돌려 아래로 세운다.
    +45도로 돌리면 옆으로 누워서 왼쪽을 가리킨다. */
 .mk-pin {
     width: 34px; height: 34px; border-radius: 50% 50% 50% 5px;
@@ -227,19 +221,7 @@ body {
     font: 700 13px/1 inherit; letter-spacing: -.03em;
     font-variant-numeric: tabular-nums;
 }
-.mk-tag {                       /* 시안 C */
-    display: flex; align-items: center; gap: 6px; height: 28px;
-    padding: 0 9px 0 7px; border-radius: 6px;
-    background: #fff; border: 1px solid var(--line);
-    box-shadow: 0 2px 8px rgba(16,24,40,.16);
-    font: 600 12px/1 inherit; color: var(--text); white-space: nowrap;
-    transition: transform .18s cubic-bezier(.34,1.56,.64,1);
-}
-.mk-tag i { width: 6px; height: 14px; border-radius: 2px; background: var(--mk); }
-.mk-tag em { font-style: normal; color: var(--text-3); font-weight: 500; }
-.mk.sel .mk-dot { transform: scale(1.55); }
 .mk.sel .mk-pin { transform: rotate(-45deg) scale(1.18); }
-.mk.sel .mk-tag { transform: scale(1.08); border-color: var(--accent); }
 
 /* ─── 시트 ─────────────────────────────────────────────────── */
 #scrim {
@@ -361,29 +343,39 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   시안 A — 정갈한 미니멀
+   세 시안은 이제 구조가 같고 색만 다르다.
+   배치·둥글기·여백은 여기서 한 번만 정하고, 아래 팔레트에서는 색 토큰만 바꾼다.
    ══════════════════════════════════════════════════════════════ */
-[data-v="a"] {
-    --canvas:#EDEFF3; --surface:#fff; --sheet-bg:#fff;
-    --text:#12141A; --text-2:#4A5261; --text-3:#8B93A3;
-    --line:#E4E7EC; --line-soft:#F0F2F5;
-    --accent:#2F6BFF; --accent-on:#fff; --accent-soft:#EBF1FF; --accent-ink:#1B4FD6;
-    --warm-soft:#FFF1E8; --warm-ink:#B5511C;
-    --chip-bg:#F3F5F8; --grab:#D7DBE3;
-    --commute-bg:#F7F9FC; --commute-border:0; --commute-pad:12px 14px;
-    --shadow-float:0 2px 12px rgba(16,24,40,.10);
+:root {
+    --r-field:18px; --r-sheet:28px; --r-card:18px; --r-badge:999px; --r-btn:16px;
+    --field-h:50px; --pad-x:16px; --head-pad:8px 20px 16px; --gap:12px;
+    --fs-title:23px; --fs-stat:22px; --addr-mt:5px;
+    --stat-pad:14px 10px; --stat-align:center; --row-pad:13px 16px; --row-k:74px;
     --field-border:0; --pill-border:0; --badge-border:0;
-    --r-field:14px; --r-sheet:24px; --r-card:14px; --r-badge:8px; --r-btn:14px;
-    --field-h:48px; --pad-x:20px; --head-pad:6px 20px 14px; --gap:22px;
-    --fs-title:23px; --fs-stat:21px; --addr-mt:5px;
-    --stat-pad:0; --stat-align:left; --row-pad:11px 0; --row-k:74px;
+    --commute-border:0; --commute-pad:14px;
 }
-[data-v="a"] .stats { gap: 4px; }
-[data-v="a"] .rows { border-top: 1px solid var(--line-soft); padding-top: 2px; }
+.stats, .rows {
+    background: var(--surface); border-radius: var(--r-card);
+    box-shadow: var(--card-shadow); overflow: hidden;
+}
+.commute { box-shadow: var(--card-shadow); }
+.stat + .stat { border-left: 1px solid var(--line-soft); }
+.route { margin-top: 8px; }
 
-/* ══════════════════════════════════════════════════════════════
-   시안 B — 부드러운 카드형 (채택)
-   ══════════════════════════════════════════════════════════════ */
+/* ─── A · 파랑 계열 ────────────────────────────────────────── */
+[data-v="a"] {
+    --canvas:#EDEFF3; --surface:#fff; --sheet-bg:#F4F5F8;
+    --text:#14161C; --text-2:#4F5666; --text-3:#8A91A1;
+    --line:#E4E7EC; --line-soft:#EEF0F4;
+    --accent:#2F6BFF; --accent-on:#fff; --accent-soft:#EAF0FF; --accent-ink:#1B4FD6;
+    --warm-soft:#FFF4E5; --warm-ink:#9A5B10;
+    --chip-bg:#F1F3F7; --grab:#D5D9E1;
+    --commute-bg:#fff;
+    --shadow-float:0 3px 14px rgba(16,24,40,.10);
+    --card-shadow:0 1px 2px rgba(16,24,40,.06), 0 1px 8px rgba(16,24,40,.04);
+}
+
+/* ─── B · 주황 계열 ────────────────────────────────────────── */
 [data-v="b"] {
     --canvas:#EFEFEC; --surface:#fff; --sheet-bg:#F5F5F3;
     --text:#1A1A17; --text-2:#57574F; --text-3:#8E8E85;
@@ -391,48 +383,23 @@ body {
     --accent:#F2683C; --accent-on:#fff; --accent-soft:#FDEDE6; --accent-ink:#B84A22;
     --warm-soft:#E9F3EC; --warm-ink:#2F6B44;
     --chip-bg:#EAEAE5; --grab:#D3D3CC;
-    --commute-bg:#fff; --commute-border:0; --commute-pad:14px;
+    --commute-bg:#fff;
     --shadow-float:0 3px 14px rgba(26,26,23,.10);
-    --field-border:0; --pill-border:0; --badge-border:0;
-    --r-field:18px; --r-sheet:28px; --r-card:18px; --r-badge:999px; --r-btn:16px;
-    --field-h:50px; --pad-x:16px; --head-pad:8px 20px 16px; --gap:12px;
-    --fs-title:23px; --fs-stat:22px; --addr-mt:5px;
-    --stat-pad:14px 10px; --stat-align:center; --row-pad:13px 16px; --row-k:74px;
+    --card-shadow:0 1px 2px rgba(26,26,23,.06), 0 1px 8px rgba(26,26,23,.04);
 }
-[data-v="b"] .stats,
-[data-v="b"] .rows {
-    background: #fff; border-radius: var(--r-card);
-    box-shadow: 0 1px 2px rgba(26,26,23,.06), 0 1px 8px rgba(26,26,23,.04);
-    overflow: hidden;
-}
-[data-v="b"] .commute { box-shadow: 0 1px 2px rgba(26,26,23,.06), 0 1px 8px rgba(26,26,23,.04); }
-[data-v="b"] .stat + .stat { border-left: 1px solid var(--line-soft); }
-[data-v="b"] .route { margin-top: 8px; }
 
-/* ══════════════════════════════════════════════════════════════
-   시안 C — 정보 밀도형
-   ══════════════════════════════════════════════════════════════ */
+/* ─── C · 초록 계열 ────────────────────────────────────────── */
 [data-v="c"] {
-    --canvas:#EEF0F2; --surface:#fff; --sheet-bg:#fff;
-    --text:#0F172A; --text-2:#475569; --text-3:#94A3B8;
-    --line:#DFE3E8; --line-soft:#EDF0F3;
-    --accent:#1F3A5F; --accent-on:#fff; --accent-soft:#E8EEF6; --accent-ink:#1F3A5F;
-    --warm-soft:#FDEEE9; --warm-ink:#B3401C;
-    --chip-bg:#F1F4F7; --grab:#CBD2DA;
-    --commute-bg:#F7F9FB; --commute-border:1px solid #E6EBF0; --commute-pad:10px 12px;
-    --shadow-float:0 2px 10px rgba(15,23,42,.10);
-    --field-border:1px solid #E3E6EA; --pill-border:1px solid #E3E6EA; --badge-border:1px solid var(--line);
-    --r-field:10px; --r-sheet:16px; --r-card:10px; --r-badge:5px; --r-btn:10px;
-    --field-h:44px; --pad-x:16px; --head-pad:4px 16px 12px; --gap:14px;
-    --fs-title:20px; --fs-stat:20px; --addr-mt:3px;
-    --stat-pad:10px 8px; --stat-align:center; --row-pad:9px 0; --row-k:70px;
+    --canvas:#EBEFEA; --surface:#fff; --sheet-bg:#F2F5F1;
+    --text:#161A16; --text-2:#4E564D; --text-3:#878E85;
+    --line:#E3E7E1; --line-soft:#EBEFE9;
+    --accent:#1F9D63; --accent-on:#fff; --accent-soft:#E6F5ED; --accent-ink:#157048;
+    --warm-soft:#FDF3E0; --warm-ink:#8A6212;
+    --chip-bg:#E8ECE6; --grab:#CFD6CD;
+    --commute-bg:#fff;
+    --shadow-float:0 3px 14px rgba(20,32,22,.10);
+    --card-shadow:0 1px 2px rgba(20,32,22,.06), 0 1px 8px rgba(20,32,22,.04);
 }
-[data-v="c"] .stats {
-    border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; background: #FAFBFC;
-}
-[data-v="c"] .stat + .stat { border-left: 1px solid var(--line); }
-[data-v="c"] .rows { border-top: 1px solid var(--line); }
-[data-v="c"] .route button { height: 44px; font-size: 13.5px; }
 
 /* ══════════════════════════════════════════════════════════════
    넓은 화면 — 하단 시트 대신 좌측 패널
@@ -635,23 +602,20 @@ var HOME = { lat: 35.8714354, lng: 128.601445 };
 
 /* 급지 색. 원색을 나열하지 않고 한 계열의 농도 차이로 구분한다.
    색을 구분하지 못해도 명암으로 읽히게 하려는 것이다. */
-var GRADE_TONE   = { '가':'#2F6BFF', '나':'#5B8DEF', '다':'#93AECF', '라':'#B9C4D4', '':'#A9B2C0' };
-var GRADE_TONE_B = { '가':'#E2552B', '나':'#F0855C', '다':'#F0B48F', '라':'#DCC9BC', '':'#C9C4BC' };
+var GRADE_TONE = {
+    a: { '가':'#2F6BFF', '나':'#6C97F2', '다':'#A3BADF', '라':'#C4CDDC', '':'#A9B2C0' },
+    b: { '가':'#E2552B', '나':'#F0855C', '다':'#F0B48F', '라':'#DCC9BC', '':'#C9C4BC' },
+    c: { '가':'#1F9D63', '나':'#57BC8B', '다':'#9CCFB4', '라':'#C6D6C9', '':'#BCC4BB' }
+};
 var GRADES = ['가', '나', '다', '라'];
 
 function toneFor(g) {
-    return document.documentElement.dataset.v === 'b'
-        ? (GRADE_TONE_B[g || ''] || GRADE_TONE_B[''])
-        : (GRADE_TONE[g || ''] || GRADE_TONE['']);
+    var set = GRADE_TONE[document.documentElement.dataset.v] || GRADE_TONE.b;
+    return set[g || ''] || set[''];
 }
 function has(v) {
     return v !== null && v !== undefined && String(v).trim() !== '' && String(v) !== '-';
 }
-function shortName(n) {
-    var s = n.replace(/\(.*\)/, '').replace(/^대구/, '').replace(/초등학교$/, '초');
-    return s.length > 7 ? s.slice(0, 6) + '…' : s;
-}
-
 /* 직선거리(하버사인). 소요시간으로 환산하지 않는다 —
    도로 우회·신호·정체를 반영하지 못해 틀린 값을 정확한 척 보여주게 된다. */
 function distanceKm(a, b) {
@@ -666,29 +630,17 @@ function distanceKm(a, b) {
 var map = null, markers = [], selected = null;
 var hasNaver = !!(typeof naver !== 'undefined' && naver.maps);
 
-function markerHTML(s, variant) {
-    var tone = toneFor(s.g);
-    if (variant === 'b') {
-        // 색으로 급지, 숫자로 학급수. 이름을 빼서 겹침을 줄이고 클릭 동기를 남긴다.
-        return '<div class="mk"><div class="mk-pin" style="--mk:' + tone + '"><span>' + s.ct + '</span></div></div>';
-    }
-    if (variant === 'c') {
-        return '<div class="mk"><div class="mk-tag" style="--mk:' + tone + '"><i></i>' +
-               shortName(s.n) + ' <em>' + s.ct + '</em></div></div>';
-    }
-    return '<div class="mk"><div class="mk-dot" style="--mk:' + tone + '"></div></div>';
+// 색으로 급지, 숫자로 학급수. 이름을 빼서 겹침을 줄이고 클릭 동기를 남긴다.
+function markerHTML(s) {
+    return '<div class="mk"><div class="mk-pin" style="--mk:' + toneFor(s.g) + '">' +
+           '<span>' + s.ct + '</span></div></div>';
 }
 
-// 시안별 마커 크기와 기준점. B는 뾰족한 끝이 좌표를 가리켜야 한다.
-var MK_SPEC = {
-    a: { size: [20, 20], anchor: [10, 10],  fbShift: '-50%, -50%' },
-    b: { size: [34, 34], anchor: [17, 41],  fbShift: '-50%, -85%' },
-    c: { size: [96, 28], anchor: [48, 14],  fbShift: '-50%, -50%' }
-};
+// 뾰족한 끝이 좌표를 가리켜야 하므로 기준점을 핀 아래 꼭짓점에 둔다.
+var MK_SPEC = { anchor: [17, 41], fbShift: '-50%, -85%' };
 
 function buildMarkers() {
-    var variant = document.documentElement.dataset.v;
-    var spec = MK_SPEC[variant];
+    var spec = MK_SPEC;
 
     // 인증에 실패한 지도에 붙어 있던 마커는 정리 중에 예외를 던진다.
     // 여기서 멈추면 새 마커를 한 개도 못 그려서 화면이 통째로 비어버린다.
@@ -699,7 +651,7 @@ function buildMarkers() {
     selected = null;
 
     SCHOOLS.forEach(function(s) {
-        var html = markerHTML(s, variant);
+        var html = markerHTML(s);
 
         if (hasNaver) {
             var m = new naver.maps.Marker({
