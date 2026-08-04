@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko" data-v="a">
+<html lang="ko" data-v="b">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
@@ -23,13 +23,14 @@ body {
     background: var(--canvas);
     -webkit-font-smoothing: antialiased;
 }
+
 /* 네이버 지도는 초기화할 때 컨테이너의 position을 relative로 덮어쓴다.
    그러면 inset:0으로 잡아둔 크기가 무효가 되면서 높이가 0으로 무너지고,
    타일은 정상적으로 받아왔는데 화면에는 아무것도 안 보이는 상태가 된다.
    position에 기대지 말고 width/height를 직접 준다. */
 #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
-/* 지도 API가 막히는 환경(file:// 등)에서도 시안을 볼 수 있게 대체 배경을 깔아둔다. */
+/* 지도 API가 막히는 환경에서도 시안을 볼 수 있게 대체 배경을 깔아둔다. */
 #map-fallback {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none;
     background:
@@ -38,14 +39,17 @@ body {
         radial-gradient(120% 90% at 30% 20%, #EEF3EC 0%, #E8EDF2 55%, #E2E7EE 100%);
 }
 #map-fallback .note {
-    position: absolute; left: 50%; top: 18%; transform: translateX(-50%);
+    position: absolute; left: 50%; top: 22%; transform: translateX(-50%);
     font-size: 12px; color: #98A2B3; white-space: nowrap;
 }
 
 /* ─── 시안 전환기 (제품 UI 아님) ───────────────────────────── */
-#switch {
+#devtools {
     position: fixed; z-index: 5000; right: 12px;
     top: calc(env(safe-area-inset-top, 0px) + 12px);
+    display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
+}
+#switch {
     display: flex; align-items: center; gap: 2px;
     padding: 3px; border-radius: 999px;
     background: rgba(18, 20, 26, .82);
@@ -57,14 +61,6 @@ body {
     font-size: 10px; font-weight: 600; color: rgba(255,255,255,.5);
     padding: 0 7px 0 6px; letter-spacing: .04em;
 }
-/* 지도가 왜 안 뜨는지 개발자도구 없이 알 수 있게 상태를 글자로 보여준다. */
-#mapstat {
-    font-size: 10px; font-weight: 600; color: rgba(255,255,255,.55);
-    padding: 0 9px 0 7px; margin-left: 2px; white-space: nowrap;
-    border-left: 1px solid rgba(255,255,255,.18);
-}
-#mapstat.ok { color: #6EE7A8; }
-#mapstat.bad { color: #FFA9A0; }
 #switch button {
     border: 0; background: transparent; color: rgba(255,255,255,.62);
     font: 600 12px/1 inherit; padding: 7px 11px; border-radius: 999px;
@@ -72,19 +68,30 @@ body {
 }
 #switch button.on { background: #fff; color: #12141A; }
 
+/* 지도가 왜 안 뜨는지 개발자도구 없이 알 수 있게 상태를 글자로 보여준다. */
+#mapstat {
+    font-size: 10px; font-weight: 600; padding: 4px 9px; border-radius: 999px;
+    background: rgba(18, 20, 26, .82); color: rgba(255,255,255,.55);
+    white-space: nowrap; backdrop-filter: blur(12px);
+}
+#mapstat.ok { color: #6EE7A8; }
+#mapstat.bad { color: #FFA9A0; }
+
 /* ─── 상단 검색·필터 바 ────────────────────────────────────── */
-/* 지금 제품은 접속 즉시 드롭다운 6개가 펼쳐져 있다. 여기서는 한 줄로 줄이고
-   자세한 조건은 눌러서 여는 것을 전제로 그렸다. */
 #topbar {
     position: absolute; z-index: 900;
     top: calc(env(safe-area-inset-top, 0px) + 12px);
-    left: 12px; right: 64px;
+    left: 12px; right: 12px;
     display: flex; flex-direction: column; gap: 8px;
     pointer-events: none;
 }
 #topbar > * { pointer-events: auto; }
 
+/* 검색줄만 우상단 전환기를 피하면 된다. 아래 줄과 패널은 폭을 다 쓴다. */
+.toprow { display: flex; gap: 8px; align-items: center; padding-right: 106px; }
+
 .searchfield {
+    flex: 1; min-width: 0;
     display: flex; align-items: center; gap: 8px;
     height: var(--field-h); padding: 0 14px;
     background: var(--surface); border-radius: var(--r-field);
@@ -98,11 +105,33 @@ body {
 }
 .searchfield input::placeholder { color: var(--text-3); font-weight: 400; }
 
-.pills {
-    display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 2px;
-    scrollbar-width: none; -ms-overflow-style: none;
+/* 조건이 6개라 알약으로 늘어놓으면 폰에서 반드시 잘린다. 버튼 하나로 접는다. */
+#filterBtn {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+    height: 34px; padding: 0 13px; cursor: pointer;
+    background: var(--surface); color: var(--text); border: var(--pill-border);
+    border-radius: 999px; box-shadow: var(--shadow-float);
+    font: 600 13px/1 inherit; letter-spacing: -.02em;
+    transition: transform .12s ease;
 }
-.pills::-webkit-scrollbar { display: none; }
+#filterBtn:active { transform: scale(.96); }
+#filterBtn .cnt {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+    background: var(--accent); color: var(--accent-on); font-size: 11px; font-weight: 700;
+}
+
+.pills { display: flex; gap: 6px; }
+.pill {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+    height: 34px; padding: 0 13px; border-radius: 999px;
+    background: var(--surface); color: var(--text-2);
+    font: 500 13px/1 inherit; white-space: nowrap; cursor: pointer;
+    border: var(--pill-border); box-shadow: var(--shadow-float);
+    transition: transform .12s ease, background .16s, color .16s;
+}
+.pill:active { transform: scale(.96); }
+.pill.on { background: var(--accent); color: var(--accent-on); border-color: transparent; }
 
 /* 검색 결과 목록 */
 #searchlist {
@@ -127,43 +156,68 @@ body {
     color: var(--text-3); font-weight: 500; font-variant-numeric: tabular-nums;
 }
 #searchlist .empty { padding: 14px 12px; font-size: 13px; color: var(--text-3); }
-.pill {
-    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
-    height: 34px; padding: 0 13px; border-radius: 999px;
-    background: var(--surface); color: var(--text-2);
-    font: 500 13px/1 inherit; white-space: nowrap; cursor: pointer;
-    border: var(--pill-border); box-shadow: var(--shadow-float);
-    transition: transform .12s ease, background .16s, color .16s;
+
+/* ─── 필터 패널 ────────────────────────────────────────────── */
+#filterpanel {
+    display: none; margin-top: 0;
+    background: var(--surface); border-radius: var(--r-field);
+    box-shadow: var(--shadow-float), 0 10px 32px rgba(16,24,40,.16);
+    border: var(--field-border);
+    padding: 16px; max-height: 66vh; overflow-y: auto;
 }
-.pill:active { transform: scale(.96); }
-.pill .caret { color: var(--text-3); font-size: 9px; }
-.pill.on {
-    background: var(--accent); color: var(--accent-on);
-    border-color: transparent;
+#filterpanel.show { display: block; }
+.fgroup + .fgroup { margin-top: 16px; }
+.fgroup > h4 {
+    margin: 0 0 8px; font-size: 12px; font-weight: 600;
+    color: var(--text-3); letter-spacing: -.01em;
 }
-.pill.on .caret { color: var(--accent-on); opacity: .7; }
-.pill.home { color: var(--accent); border-color: var(--accent-line); }
-.pill.home.on { color: var(--accent-on); }
+.fchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fchip {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 32px; padding: 0 12px; border-radius: var(--r-badge);
+    background: var(--chip-bg); color: var(--text-2); border: var(--badge-border);
+    font: 500 13px/1 inherit; cursor: pointer; letter-spacing: -.01em;
+    transition: background .16s, color .16s;
+}
+.fchip.on { background: var(--accent); color: var(--accent-on); border-color: transparent; }
+/* 급지 색이 무슨 뜻인지는 여기서 알게 된다. 범례를 따로 두지 않고 필터가 겸한다. */
+.fchip .sw {
+    width: 12px; height: 12px; border-radius: 4px; flex: 0 0 auto;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+}
+.frange { display: flex; align-items: center; gap: 10px; }
+.frange input[type=range] { flex: 1; accent-color: var(--accent); cursor: pointer; }
+.frange b { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 56px; text-align: right; }
+.fnote { margin: 6px 0 0; font-size: 11.5px; color: var(--text-3); line-height: 1.5; }
+.factions { display: flex; gap: 8px; margin-top: 18px; }
+.factions button {
+    height: 44px; border-radius: var(--r-btn); font: 600 14px/1 inherit; cursor: pointer;
+}
+.factions .reset { flex: 0 0 90px; border: 1px solid var(--line); background: var(--surface); color: var(--text-2); }
+.factions .apply { flex: 1; border: 0; background: var(--accent); color: var(--accent-on); }
 
 /* ─── 마커 ─────────────────────────────────────────────────── */
-.mk { cursor: pointer; transform-origin: 50% 100%; }
+.mk { cursor: pointer; }
 .mk-dot {                       /* 시안 A */
     width: 14px; height: 14px; border-radius: 50%;
     background: var(--mk); border: 3px solid #fff;
     box-shadow: 0 1px 5px rgba(16,24,40,.28);
     transition: transform .18s cubic-bezier(.34,1.56,.64,1);
 }
-.mk-pin {                       /* 시안 B */
-    width: 34px; height: 34px; border-radius: 50% 50% 50% 4px;
-    transform: rotate(45deg);
+/* 시안 B — 뾰족한 모서리(왼쪽 아래)를 -45도 돌려 아래로 세운다.
+   +45도로 돌리면 옆으로 누워서 왼쪽을 가리킨다. */
+.mk-pin {
+    width: 34px; height: 34px; border-radius: 50% 50% 50% 5px;
+    transform: rotate(-45deg);
     background: var(--mk); border: 2.5px solid #fff;
-    box-shadow: 0 3px 10px rgba(16,24,40,.26);
+    box-shadow: 0 3px 10px rgba(16,24,40,.28);
     display: flex; align-items: center; justify-content: center;
     transition: transform .18s cubic-bezier(.34,1.56,.64,1);
 }
 .mk-pin span {
-    transform: rotate(-45deg); color: #fff;
-    font: 700 13px/1 inherit; letter-spacing: -.02em;
+    transform: rotate(45deg); color: #fff;
+    font: 700 13px/1 inherit; letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums;
 }
 .mk-tag {                       /* 시안 C */
     display: flex; align-items: center; gap: 6px; height: 28px;
@@ -176,37 +230,37 @@ body {
 .mk-tag i { width: 6px; height: 14px; border-radius: 2px; background: var(--mk); }
 .mk-tag em { font-style: normal; color: var(--text-3); font-weight: 500; }
 .mk.sel .mk-dot { transform: scale(1.55); }
-.mk.sel .mk-pin { transform: rotate(45deg) scale(1.18); }
+.mk.sel .mk-pin { transform: rotate(-45deg) scale(1.18); }
 .mk.sel .mk-tag { transform: scale(1.08); border-color: var(--accent); }
 
 /* ─── 시트 ─────────────────────────────────────────────────── */
 #scrim {
-    position: absolute; inset: 0; z-index: 940;
-    background: rgba(16,24,40,.28); opacity: 0;
-    pointer-events: none; transition: opacity .32s ease;
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 940;
+    background: rgba(16,24,40,.32); opacity: 0;
+    pointer-events: none; transition: opacity .34s ease;
 }
 #scrim.show { opacity: 1; pointer-events: auto; }
 
+/* 한 번에 크게 열고, 안쪽은 브라우저에 맡긴다.
+   위쪽 8%에 지도를 남겨서 '지도 위에 떠 있다'는 감각을 유지한다. */
 #sheet {
     position: absolute; z-index: 950;
-    left: 0; right: 0; bottom: 0; height: 88vh;
+    left: 0; right: 0; bottom: 0; height: 92vh;
     display: flex; flex-direction: column;
     background: var(--sheet-bg);
     border-radius: var(--r-sheet) var(--r-sheet) 0 0;
-    box-shadow: 0 -8px 40px rgba(16,24,40,.16), 0 -1px 0 var(--sheet-hair);
+    box-shadow: 0 -8px 40px rgba(16,24,40,.18);
     transform: translateY(100%);
     will-change: transform;
-    touch-action: none;
 }
-#sheet.animate { transition: transform .42s cubic-bezier(.32,.72,0,1); }
+#sheet.animate { transition: transform .44s cubic-bezier(.32,.72,0,1); }
 
-.grabber { padding: 10px 0 4px; display: flex; justify-content: center; flex: 0 0 auto; }
+/* 끌기는 여기서만 받는다. 내용 영역은 손대지 않아야 스크롤이 네이티브로 돈다. */
+.sheet-top { flex: 0 0 auto; touch-action: none; cursor: grab; }
+.grabber { padding: 10px 0 4px; display: flex; justify-content: center; }
 .grabber i { width: 36px; height: 4px; border-radius: 99px; background: var(--grab); }
 
-.sheet-head {
-    flex: 0 0 auto; display: flex; align-items: flex-start; gap: 12px;
-    padding: var(--head-pad);
-}
+.sheet-head { display: flex; align-items: flex-start; gap: 12px; padding: var(--head-pad); }
 .sheet-head .ttl { flex: 1; min-width: 0; }
 .sheet-head h2 {
     margin: 0; font-size: var(--fs-title); font-weight: 700;
@@ -223,9 +277,11 @@ body {
 }
 
 .sheet-scroll {
-    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    flex: 1; min-height: 0;
+    overflow-y: auto; overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding: 0 var(--pad-x) calc(20px + env(safe-area-inset-bottom, 0px));
+    touch-action: pan-y;
+    padding: 0 var(--pad-x) calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
 /* 배지 */
@@ -238,7 +294,7 @@ body {
 .badge.key { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
 .badge.warm { background: var(--warm-soft); color: var(--warm-ink); border-color: transparent; }
 
-/* 통근 띠 — '우리집' 기능이 붙었을 때 무엇이 보일지 미리 그려둔 자리 */
+/* 거리 띠 — 직선거리만 적는다. 어림한 소요시간은 적지 않는다. */
 .commute {
     display: flex; align-items: center; gap: 10px; margin-bottom: var(--gap);
     padding: var(--commute-pad); border-radius: var(--r-card);
@@ -251,7 +307,7 @@ body {
 }
 .commute .txt { flex: 1; min-width: 0; }
 .commute .txt b { display: block; font-size: 14px; font-weight: 600; letter-spacing: -.02em; }
-.commute .txt span { display: block; font-size: 12px; color: var(--text-3); margin-top: 1px; }
+.commute .txt span { display: block; font-size: 11.5px; color: var(--text-3); margin-top: 2px; line-height: 1.4; }
 
 /* 핵심 지표 */
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: var(--gap); }
@@ -281,24 +337,21 @@ body {
     flex: 1; height: 48px; border-radius: var(--r-btn); cursor: pointer;
     font: 600 14px/1 inherit; letter-spacing: -.02em;
     display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-    transition: transform .12s ease, filter .16s;
+    transition: transform .12s ease;
 }
 .route button:active { transform: scale(.975); }
 .route .primary { border: 0; background: var(--accent); color: var(--accent-on); }
 .route .ghost { border: 1px solid var(--line); background: var(--surface); color: var(--text); }
 .route-cap { margin: 8px 0 0; font-size: 11px; color: var(--text-3); text-align: center; }
 
-.sect { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--text-3); letter-spacing: -.01em; }
-
 /* ══════════════════════════════════════════════════════════════
    시안 A — 정갈한 미니멀
-   원색을 하나로 줄이고, 선 대신 여백으로 묶는다.
    ══════════════════════════════════════════════════════════════ */
 [data-v="a"] {
-    --canvas:#EDEFF3; --surface:#fff; --sheet-bg:#fff; --sheet-hair:transparent;
+    --canvas:#EDEFF3; --surface:#fff; --sheet-bg:#fff;
     --text:#12141A; --text-2:#4A5261; --text-3:#8B93A3;
     --line:#E4E7EC; --line-soft:#F0F2F5;
-    --accent:#2F6BFF; --accent-on:#fff; --accent-soft:#EBF1FF; --accent-ink:#1B4FD6; --accent-line:#C9DAFF;
+    --accent:#2F6BFF; --accent-on:#fff; --accent-soft:#EBF1FF; --accent-ink:#1B4FD6;
     --warm-soft:#FFF1E8; --warm-ink:#B5511C;
     --chip-bg:#F3F5F8; --grab:#D7DBE3;
     --commute-bg:#F7F9FC; --commute-border:0; --commute-pad:12px 14px;
@@ -307,20 +360,19 @@ body {
     --r-field:14px; --r-sheet:24px; --r-card:14px; --r-badge:8px; --r-btn:14px;
     --field-h:48px; --pad-x:20px; --head-pad:6px 20px 14px; --gap:22px;
     --fs-title:23px; --fs-stat:21px; --addr-mt:5px;
-    --stat-pad:0 0 0; --stat-align:left; --row-pad:11px 0; --row-k:74px;
+    --stat-pad:0; --stat-align:left; --row-pad:11px 0; --row-k:74px;
 }
 [data-v="a"] .stats { gap: 4px; }
 [data-v="a"] .rows { border-top: 1px solid var(--line-soft); padding-top: 2px; }
 
 /* ══════════════════════════════════════════════════════════════
-   시안 B — 부드러운 카드형
-   회색 바탕 위에 흰 카드가 떠 있는 구성. 둥글기와 그림자를 키웠다.
+   시안 B — 부드러운 카드형 (채택)
    ══════════════════════════════════════════════════════════════ */
 [data-v="b"] {
-    --canvas:#EFEFEC; --surface:#fff; --sheet-bg:#F5F5F3; --sheet-hair:transparent;
+    --canvas:#EFEFEC; --surface:#fff; --sheet-bg:#F5F5F3;
     --text:#1A1A17; --text-2:#57574F; --text-3:#8E8E85;
     --line:#E6E6E1; --line-soft:#EDEDE8;
-    --accent:#F2683C; --accent-on:#fff; --accent-soft:#FDEDE6; --accent-ink:#B84A22; --accent-line:#F8D3C4;
+    --accent:#F2683C; --accent-on:#fff; --accent-soft:#FDEDE6; --accent-ink:#B84A22;
     --warm-soft:#E9F3EC; --warm-ink:#2F6B44;
     --chip-bg:#EAEAE5; --grab:#D3D3CC;
     --commute-bg:#fff; --commute-border:0; --commute-pad:14px;
@@ -331,7 +383,6 @@ body {
     --fs-title:23px; --fs-stat:22px; --addr-mt:5px;
     --stat-pad:14px 10px; --stat-align:center; --row-pad:13px 16px; --row-k:74px;
 }
-/* 카드로 띄우기 */
 [data-v="b"] .stats,
 [data-v="b"] .rows {
     background: #fff; border-radius: var(--r-card);
@@ -344,13 +395,12 @@ body {
 
 /* ══════════════════════════════════════════════════════════════
    시안 C — 정보 밀도형
-   한 화면에 최대한 담고 눈으로 훑기 좋게. 부동산 앱에 가까운 결.
    ══════════════════════════════════════════════════════════════ */
 [data-v="c"] {
-    --canvas:#EEF0F2; --surface:#fff; --sheet-bg:#fff; --sheet-hair:#E3E6EA;
+    --canvas:#EEF0F2; --surface:#fff; --sheet-bg:#fff;
     --text:#0F172A; --text-2:#475569; --text-3:#94A3B8;
     --line:#DFE3E8; --line-soft:#EDF0F3;
-    --accent:#1F3A5F; --accent-on:#fff; --accent-soft:#E8EEF6; --accent-ink:#1F3A5F; --accent-line:#C3D2E6;
+    --accent:#1F3A5F; --accent-on:#fff; --accent-soft:#E8EEF6; --accent-ink:#1F3A5F;
     --warm-soft:#FDEEE9; --warm-ink:#B3401C;
     --chip-bg:#F1F4F7; --grab:#CBD2DA;
     --commute-bg:#F7F9FB; --commute-border:1px solid #E6EBF0; --commute-pad:10px 12px;
@@ -362,23 +412,18 @@ body {
     --stat-pad:10px 8px; --stat-align:center; --row-pad:9px 0; --row-k:70px;
 }
 [data-v="c"] .stats {
-    border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden;
-    background: #FAFBFC;
+    border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; background: #FAFBFC;
 }
 [data-v="c"] .stat + .stat { border-left: 1px solid var(--line); }
 [data-v="c"] .rows { border-top: 1px solid var(--line); }
 [data-v="c"] .route button { height: 44px; font-size: 13.5px; }
 
 /* ══════════════════════════════════════════════════════════════
-   넓은 화면 — 하단 시트는 PC에서 어색하므로 좌측 패널로 바꾼다.
-   내용(HTML)은 그대로 두고 배치만 갈아끼운다.
+   넓은 화면 — 하단 시트 대신 좌측 패널
    ══════════════════════════════════════════════════════════════ */
 @media (min-width: 880px) {
-    /* 넓은 화면에서 폭을 패널 크기로 묶어두면 알약 줄이 잘린다.
-       가로를 열어주고, 손가락 스크롤이 없는 환경이니 줄바꿈으로 흘린다. */
-    #topbar { left: 20px; right: 190px; width: auto; }
-    .searchfield, #searchlist { max-width: 400px; }
-    .pills { flex-wrap: wrap; overflow: visible; row-gap: 6px; }
+    #topbar { left: 20px; right: auto; width: 420px; }
+    .toprow { padding-right: 0; }
     #sheet {
         left: 20px; right: auto; width: 400px;
         top: 116px; bottom: 20px; height: auto;
@@ -386,10 +431,16 @@ body {
         transform: translateX(calc(-100% - 32px));
         box-shadow: 0 12px 48px rgba(16,24,40,.18);
     }
-    #sheet.animate { transition: transform .38s cubic-bezier(.32,.72,0,1), opacity .3s ease; }
+    #sheet.animate { transition: transform .38s cubic-bezier(.32,.72,0,1); }
     .grabber { display: none; }
+    .sheet-top { touch-action: auto; cursor: default; }
     .sheet-head { padding-top: 18px; }
     #scrim { display: none; }
+}
+@media (max-width: 879px) {
+    /* 폰에서는 전환기 폭을 줄여 검색창 자리를 확보한다. */
+    #switch b { display: none; }
+    #switch button { padding: 6px 9px; }
 }
 </style>
 </head>
@@ -399,51 +450,102 @@ body {
 <div id="map-fallback"><div class="note">지도 API가 로드되지 않아 대체 배경으로 표시합니다</div></div>
 
 <div id="topbar">
-    <div class="searchfield">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-            <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
-        </svg>
-        <input type="text" placeholder="학교명으로 찾기" aria-label="학교명 검색">
+    <div class="toprow">
+        <div class="searchfield">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+            </svg>
+            <input type="text" placeholder="학교명으로 찾기" aria-label="학교명 검색">
+        </div>
     </div>
     <div class="pills">
-        <div class="pill home on">
+        <button id="filterBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <path d="M4 6h16M7 12h10M10 18h4"/>
+            </svg>필터<span class="cnt">1</span>
+        </button>
+        <div class="pill home on" id="nearPill">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round">
                 <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>
-            </svg>우리집 30분
+            </svg>우리집에서 가까운 순
         </div>
-        <div class="pill">지원청<span class="caret">▾</span></div>
-        <div class="pill">급지<span class="caret">▾</span></div>
-        <div class="pill">학급수<span class="caret">▾</span></div>
-        <div class="pill">연구학교<span class="caret">▾</span></div>
-        <div class="pill">IB<span class="caret">▾</span></div>
-        <div class="pill">미래학교<span class="caret">▾</span></div>
     </div>
     <div id="searchlist"></div>
+
+    <div id="filterpanel">
+        <div class="fgroup">
+            <h4>교육지원청</h4>
+            <div class="fchips">
+                <span class="fchip on">전체</span><span class="fchip">동부</span><span class="fchip">서부</span>
+                <span class="fchip">남부</span><span class="fchip">달성</span><span class="fchip">군위</span>
+            </div>
+        </div>
+
+        <div class="fgroup">
+            <h4>급지</h4>
+            <div class="fchips" id="gradeChips"></div>
+            <p class="fnote">지도 마커의 색이 급지를 뜻합니다.</p>
+        </div>
+
+        <div class="fgroup">
+            <h4>학급수 (이상)</h4>
+            <div class="frange">
+                <input type="range" min="1" max="70" value="1" id="classRange">
+                <b id="classVal">1학급</b>
+            </div>
+        </div>
+
+        <div class="fgroup">
+            <h4>지정 학교</h4>
+            <div class="fchips">
+                <span class="fchip">연구학교</span><span class="fchip">IB</span><span class="fchip">미래학교</span>
+            </div>
+        </div>
+
+        <div class="fgroup">
+            <h4>우리집에서</h4>
+            <div class="frange">
+                <input type="range" min="1" max="30" value="30" id="distRange">
+                <b id="distVal">제한 없음</b>
+            </div>
+            <p class="fnote">직선거리 기준입니다. 실제 도로 거리는 이보다 깁니다.</p>
+        </div>
+
+        <div class="factions">
+            <button class="reset">초기화</button>
+            <button class="apply" id="applyBtn">학교 보기</button>
+        </div>
+    </div>
 </div>
 
-<div id="switch">
-    <b>시안</b>
-    <button data-set="a" class="on">A</button>
-    <button data-set="b">B</button>
-    <button data-set="c">C</button>
-    <span id="mapstat">지도 확인 중…</span>
+<div id="devtools">
+    <div id="switch">
+        <b>시안</b>
+        <button data-set="a">A</button>
+        <button data-set="b" class="on">B</button>
+        <button data-set="c">C</button>
+    </div>
+    <div id="mapstat">지도 확인 중…</div>
 </div>
 
 <div id="scrim"></div>
 
 <div id="sheet" aria-hidden="true">
-    <div class="grabber"><i></i></div>
-    <div class="sheet-head">
-        <div class="ttl">
-            <h2 id="sName">학교명</h2>
-            <p id="sAddr">주소</p>
+    <div class="sheet-top">
+        <div class="grabber"><i></i></div>
+        <div class="sheet-head">
+            <div class="ttl">
+                <h2 id="sName">학교명</h2>
+                <p id="sAddr">주소</p>
+            </div>
+            <button id="closeBtn" aria-label="닫기">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                    <path d="M6 6l12 12M18 6L6 18"/>
+                </svg>
+            </button>
         </div>
-        <button id="closeBtn" aria-label="닫기">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
-                <path d="M6 6l12 12M18 6L6 18"/>
-            </svg>
-        </button>
     </div>
+
     <div class="sheet-scroll">
         <div class="badges" id="sBadges"></div>
 
@@ -455,7 +557,7 @@ body {
             </div>
             <div class="txt">
                 <b id="sCommute">—</b>
-                <span>우리집에서 · 직선거리 기준 예상값</span>
+                <span>우리집에서 직선거리입니다. 실제 이동거리·소요시간은 아래 길찾기로 확인하세요.</span>
             </div>
         </div>
 
@@ -513,9 +615,11 @@ SCHOOLS.forEach(function(s, i) { s.lat = COORD[i][0]; s.lng = COORD[i][1]; });
 /* 시안용 '우리집'. 실제로는 사용자가 지도에서 찍은 좌표가 들어간다. */
 var HOME = { lat: 35.8714354, lng: 128.601445 };
 
-/* 급지별 색. 원색 4개를 나열하지 않고 한 계열의 농도 차이로 구분한다. */
-var GRADE_TONE = { '가':'#2F6BFF', '나':'#5B8DEF', '다':'#93AECF', '라':'#B9C4D4', '':'#A9B2C0' };
+/* 급지 색. 원색을 나열하지 않고 한 계열의 농도 차이로 구분한다.
+   색을 구분하지 못해도 명암으로 읽히게 하려는 것이다. */
+var GRADE_TONE   = { '가':'#2F6BFF', '나':'#5B8DEF', '다':'#93AECF', '라':'#B9C4D4', '':'#A9B2C0' };
 var GRADE_TONE_B = { '가':'#E2552B', '나':'#F0855C', '다':'#F0B48F', '라':'#DCC9BC', '':'#C9C4BC' };
+var GRADES = ['가', '나', '다', '라'];
 
 function toneFor(g) {
     return document.documentElement.dataset.v === 'b'
@@ -527,12 +631,11 @@ function has(v) {
 }
 function shortName(n) {
     var s = n.replace(/\(.*\)/, '').replace(/^대구/, '').replace(/초등학교$/, '초');
-    // 라벨 폭이 제각각이면 지도가 어수선해 보인다. 긴 이름은 잘라서 폭을 맞춘다.
     return s.length > 7 ? s.slice(0, 6) + '…' : s;
 }
 
-/* 직선거리(하버사인) → 도심 평균 속도로 어림한 시간.
-   실제 소요시간이 아니라, 거리 필터가 붙었을 때 보일 형태를 미리 확인하려는 값이다. */
+/* 직선거리(하버사인). 소요시간으로 환산하지 않는다 —
+   도로 우회·신호·정체를 반영하지 못해 틀린 값을 정확한 척 보여주게 된다. */
 function distanceKm(a, b) {
     var R = 6371, toRad = Math.PI / 180;
     var dLat = (b.lat - a.lat) * toRad, dLng = (b.lng - a.lng) * toRad;
@@ -543,12 +646,13 @@ function distanceKm(a, b) {
 
 /* ── 지도 ─────────────────────────────────────────────────── */
 var map = null, markers = [], selected = null;
-var hasNaver = typeof naver !== 'undefined' && naver.maps;
+var hasNaver = !!(typeof naver !== 'undefined' && naver.maps);
 
 function markerHTML(s, variant) {
     var tone = toneFor(s.g);
     if (variant === 'b') {
-        return '<div class="mk"><div class="mk-pin" style="--mk:' + tone + '"><span>' + (s.g || '·') + '</span></div></div>';
+        // 색으로 급지, 숫자로 학급수. 이름을 빼서 겹침을 줄이고 클릭 동기를 남긴다.
+        return '<div class="mk"><div class="mk-pin" style="--mk:' + tone + '"><span>' + s.ct + '</span></div></div>';
     }
     if (variant === 'c') {
         return '<div class="mk"><div class="mk-tag" style="--mk:' + tone + '"><i></i>' +
@@ -557,8 +661,16 @@ function markerHTML(s, variant) {
     return '<div class="mk"><div class="mk-dot" style="--mk:' + tone + '"></div></div>';
 }
 
+// 시안별 마커 크기와 기준점. B는 뾰족한 끝이 좌표를 가리켜야 한다.
+var MK_SPEC = {
+    a: { size: [20, 20], anchor: [10, 10],  fbShift: '-50%, -50%' },
+    b: { size: [34, 34], anchor: [17, 41],  fbShift: '-50%, -85%' },
+    c: { size: [96, 28], anchor: [48, 14],  fbShift: '-50%, -50%' }
+};
+
 function buildMarkers() {
     var variant = document.documentElement.dataset.v;
+    var spec = MK_SPEC[variant];
 
     // 인증에 실패한 지도에 붙어 있던 마커는 정리 중에 예외를 던진다.
     // 여기서 멈추면 새 마커를 한 개도 못 그려서 화면이 통째로 비어버린다.
@@ -572,23 +684,22 @@ function buildMarkers() {
         var html = markerHTML(s, variant);
 
         if (hasNaver) {
-            var size = variant === 'c' ? [96, 28] : (variant === 'b' ? [34, 34] : [20, 20]);
             var m = new naver.maps.Marker({
                 position: new naver.maps.LatLng(s.lat, s.lng),
                 map: map,
-                icon: { content: html, anchor: new naver.maps.Point(size[0] / 2, size[1] / 2) }
+                icon: { content: html, anchor: new naver.maps.Point(spec.anchor[0], spec.anchor[1]) }
             });
             naver.maps.Event.addListener(m, 'click', function() { select(s, m); });
             markers.push(m);
         } else {
             // 대체 배경일 때는 좌표를 화면 비율로 환산해 그대로 얹는다.
-            var el = document.createElement('div');
-            el.innerHTML = html;
-            el = el.firstChild;
+            var box = document.createElement('div');
+            box.innerHTML = html;
+            var el = box.firstChild;
             el.style.position = 'absolute';
             el.style.left = ((s.lng - 128.42) / (128.74 - 128.42) * 88 + 6) + '%';
             el.style.top  = ((35.97 - s.lat) / (35.97 - 35.76) * 74 + 13) + '%';
-            el.style.transform = 'translate(-50%, -50%)';
+            el.style.transform = 'translate(' + spec.fbShift + ')';
             el.style.zIndex = 100;
             el.addEventListener('click', function() { select(s, el); });
             document.getElementById('map-fallback').appendChild(el);
@@ -609,9 +720,7 @@ function fill(s) {
     document.getElementById('sAddr').textContent = s.a;
 
     var km = distanceKm(HOME, s);
-    var min = Math.max(5, Math.round(km / 22 * 60 + 6));
-    document.getElementById('sCommute').textContent =
-        '직선 ' + km.toFixed(1) + 'km · 차로 약 ' + min + '분';
+    document.getElementById('sCommute').textContent = '우리집에서 직선 ' + km.toFixed(1) + 'km';
 
     var badges = [];
     badges.push({ t: s.d + '교육지원청', c: '' });
@@ -628,7 +737,7 @@ function fill(s) {
     document.getElementById('sStats').innerHTML =
         '<div class="stat"><div class="k">총 학급</div><div class="v">' + s.ct + '<u>학급</u></div></div>' +
         '<div class="stat"><div class="k">일반 / 특수</div><div class="v">' + s.cr + '<u> / </u>' + s.cs + '</div></div>' +
-        '<div class="stat"><div class="k">집에서</div><div class="v">' + km.toFixed(1) + '<u>km</u></div></div>';
+        '<div class="stat"><div class="k">집에서 직선</div><div class="v">' + km.toFixed(1) + '<u>km</u></div></div>';
 
     function row(k, on, v) {
         return '<div class="row"><div class="k">' + k + '</div>' +
@@ -647,127 +756,99 @@ function select(s, m) {
     selected = m;
     var el = markerEl(m); if (el) el.classList.add('sel');
 
+    closePanels();
     fill(s);
-    open(isWide() ? 'full' : 'half');
+    open();
 }
 
 /* ── 시트 동작 ─────────────────────────────────────────────
-   높이를 세 지점(살짝·절반·전체)에 스냅시키고, 손을 떼는 순간의 속도로
-   다음 지점을 정한다. 이 감각이 시트 품질의 대부분을 차지한다. */
+   단계를 두지 않는다. 열면 크게 열리고, 닫는 것만 있다.
+   끌기는 손잡이·제목에서만 받고 내용 영역은 브라우저에 맡긴다. */
 var sheet = document.getElementById('sheet');
 var scrim = document.getElementById('scrim');
 var scroll = sheet.querySelector('.sheet-scroll');
-var H = 0, snaps = {}, current = 'closed', y = 0;
+var sheetTop = sheet.querySelector('.sheet-top');
+var H = 0, isOpen = false, y = 0;
 
 function isWide() { return window.matchMedia('(min-width: 880px)').matches; }
-
-function measure() {
-    H = sheet.offsetHeight;
-    snaps = {
-        closed: H,
-        peek: Math.max(0, H - 168),
-        half: Math.max(0, H - Math.round(window.innerHeight * 0.52)),
-        full: 0
-    };
-}
+function measure() { H = sheet.offsetHeight; }
 measure();
-window.addEventListener('resize', function() { measure(); if (current !== 'closed') settle(current, false); });
+window.addEventListener('resize', function() { measure(); if (isOpen) settle(true, false); });
 
 function setY(v) {
     y = v;
-    sheet.style.transform = isWide() ? '' : 'translateY(' + v + 'px)';
+    if (!isWide()) sheet.style.transform = 'translateY(' + v + 'px)';
 }
 
-function settle(state, animate) {
-    current = state;
+function settle(openState, animate) {
+    isOpen = openState;
     sheet.classList.toggle('animate', animate !== false);
     if (isWide()) {
-        sheet.style.transform = state === 'closed' ? 'translateX(calc(-100% - 32px))' : 'translateX(0)';
+        sheet.style.transform = openState ? 'translateX(0)' : 'translateX(calc(-100% - 32px))';
     } else {
-        setY(snaps[state]);
+        setY(openState ? 0 : H);
     }
-    scrim.classList.toggle('show', state === 'full' || state === 'half');
-    sheet.setAttribute('aria-hidden', state === 'closed' ? 'true' : 'false');
-    if (state !== 'full') scroll.scrollTop = 0;
+    scrim.classList.toggle('show', openState);
+    sheet.setAttribute('aria-hidden', openState ? 'false' : 'true');
+    if (!openState) scroll.scrollTop = 0;
 }
 
-function open(state) {
-    // 폰트나 주소창 높이가 늦게 확정되면 처음 잰 값이 틀어진다. 열 때마다 다시 잰다.
+function open() {
     measure();
-    if (current === 'closed') { sheet.classList.remove('animate'); setY(snaps.closed); void sheet.offsetHeight; }
-    requestAnimationFrame(function() { settle(state || 'half', true); });
+    if (!isOpen) { sheet.classList.remove('animate'); setY(H); void sheet.offsetHeight; }
+    requestAnimationFrame(function() { settle(true, true); });
 }
-function close() { settle('closed', true); if (selected) { var e = markerEl(selected); if (e) e.classList.remove('sel'); selected = null; } }
+function close() {
+    settle(false, true);
+    if (selected) { var e = markerEl(selected); if (e) e.classList.remove('sel'); selected = null; }
+}
 
 document.getElementById('closeBtn').addEventListener('click', close);
 scrim.addEventListener('click', close);
 
-/* 끌기 */
+/* 끌어서 닫기 */
 var drag = null;
 
-function startDrag(e) {
-    if (isWide()) return;
-    var fromScroll = scroll.contains(e.target);
-    if (fromScroll && scroll.scrollTop > 0) return;      // 목록을 읽는 중이면 시트를 끌지 않는다
-    drag = { y0: e.clientY, start: y, last: e.clientY, t: e.timeStamp, v: 0, fromScroll: fromScroll, moved: false };
+sheetTop.addEventListener('pointerdown', function(e) {
+    if (isWide() || e.target.closest('#closeBtn')) return;
+    drag = { y0: e.clientY, last: e.clientY, t: e.timeStamp, v: 0, moved: false };
     sheet.classList.remove('animate');
-    sheet.setPointerCapture(e.pointerId);
-}
-function moveDrag(e) {
+    sheetTop.setPointerCapture(e.pointerId);
+});
+
+sheetTop.addEventListener('pointermove', function(e) {
     if (!drag) return;
     var dy = e.clientY - drag.y0;
-    if (drag.fromScroll && dy < 0 && !drag.moved) { drag = null; return; }  // 위로 미는 건 스크롤에 넘긴다
     if (Math.abs(dy) > 3) drag.moved = true;
 
     var dt = e.timeStamp - drag.t;
     if (dt > 0) { drag.v = (e.clientY - drag.last) / dt; drag.last = e.clientY; drag.t = e.timeStamp; }
 
-    var next = drag.start + dy;
-    if (next < 0) next = next * 0.28;                     // 끝을 넘기면 저항이 걸린다
-    setY(Math.min(next, snaps.closed));
+    setY(dy < 0 ? dy * 0.22 : dy);   // 위로는 저항을 걸어 끝을 알린다
     e.preventDefault();
-}
-function endDrag() {
-    if (!drag) return;
-    var v = drag.v, d = drag;
-    drag = null;
-    if (!d.moved) return;
-
-    var order = ['full', 'half', 'peek', 'closed'];
-    var idx = order.indexOf(current);
-
-    if (v > 0.45)      settle(order[Math.min(idx + 1, 3)], true);   // 아래로 튕김
-    else if (v < -0.45) settle(order[Math.max(idx - 1, 0)], true);  // 위로 튕김
-    else {
-        var best = 'closed', gap = Infinity;
-        order.forEach(function(k) {
-            var g = Math.abs(snaps[k] - y);
-            if (g < gap) { gap = g; best = k; }
-        });
-        settle(best, true);
-    }
-    if (current === 'closed') close();
-}
-
-sheet.addEventListener('pointerdown', startDrag);
-sheet.addEventListener('pointermove', moveDrag);
-sheet.addEventListener('pointerup', endDrag);
-sheet.addEventListener('pointercancel', endDrag);
-
-/* ── 시안 전환 ─────────────────────────────────────────────── */
-document.getElementById('switch').addEventListener('click', function(e) {
-    var btn = e.target.closest('button[data-set]');
-    if (!btn) return;
-    document.querySelectorAll('#switch button').forEach(function(b) { b.classList.toggle('on', b === btn); });
-    document.documentElement.dataset.v = btn.dataset.set;
-    buildMarkers();
-    if (current !== 'closed') close();
 });
 
-/* ── 학교 목록 검색 ─────────────────────────────────────────
-   시안이라도 시트를 다시 열 방법은 있어야 한다. 마커를 못 찾겠을 때의 퇴로. */
+function endDrag() {
+    if (!drag) return;
+    var v = drag.v, moved = drag.moved;
+    drag = null;
+    if (!moved) return;
+    // 충분히 내렸거나 아래로 튕겼으면 닫고, 아니면 제자리로 돌아온다.
+    if (y > H * 0.28 || v > 0.5) close();
+    else settle(true, true);
+}
+sheetTop.addEventListener('pointerup', endDrag);
+sheetTop.addEventListener('pointercancel', endDrag);
+
+/* ── 상단 검색·필터 ─────────────────────────────────────────── */
 var sInput = document.querySelector('.searchfield input');
 var sList = document.getElementById('searchlist');
+var fPanel = document.getElementById('filterpanel');
+
+function closePanels() {
+    sList.classList.remove('show');
+    fPanel.classList.remove('show');
+}
 
 function renderList(q) {
     var hit = [];
@@ -779,6 +860,7 @@ function renderList(q) {
               return '<button data-i="' + p[1] + '"><i style="--mk:' + toneFor(p[0].g) + '"></i>' +
                      p[0].n.replace(/\((국립|사립)\)/, '') + '<em>' + p[0].ct + '학급</em></button>';
           }).join('');
+    fPanel.classList.remove('show');
     sList.classList.add('show');
 }
 
@@ -789,25 +871,61 @@ sList.addEventListener('click', function(e) {
     var btn = e.target.closest('button[data-i]');
     if (!btn) return;
     var i = parseInt(btn.dataset.i, 10);
-    sList.classList.remove('show');
+    closePanels();
     sInput.blur();
 
     var m = markers[i];
-    if (map && m && m.getPosition) {
-        map.setCenter(m.getPosition());
-        map.setZoom(14);
-    }
+    if (map && m && m.getPosition) { map.setCenter(m.getPosition()); map.setZoom(14); }
     select(SCHOOLS[i], m);
 });
 
+document.getElementById('filterBtn').addEventListener('click', function() {
+    var show = !fPanel.classList.contains('show');
+    closePanels();
+    if (show) fPanel.classList.add('show');
+});
+document.getElementById('applyBtn').addEventListener('click', closePanels);
+
 document.addEventListener('pointerdown', function(e) {
-    if (!e.target.closest('#topbar')) sList.classList.remove('show');
+    if (!e.target.closest('#topbar')) closePanels();
 }, true);
+
+// 급지 칩은 색 견본을 함께 보여준다. 이것이 곧 마커 색의 범례다.
+function renderGradeChips() {
+    document.getElementById('gradeChips').innerHTML = GRADES.map(function(g) {
+        return '<span class="fchip on"><i class="sw" style="background:' + toneFor(g) + '"></i>' + g + '급지</span>';
+    }).join('');
+}
+
+document.querySelector('#filterpanel').addEventListener('click', function(e) {
+    var chip = e.target.closest('.fchip');
+    if (chip) chip.classList.toggle('on');
+});
+
+var classRange = document.getElementById('classRange');
+classRange.addEventListener('input', function() {
+    document.getElementById('classVal').textContent = classRange.value + '학급';
+});
+var distRange = document.getElementById('distRange');
+distRange.addEventListener('input', function() {
+    document.getElementById('distVal').textContent =
+        distRange.value >= 30 ? '제한 없음' : distRange.value + 'km';
+});
+
+/* ── 시안 전환 ─────────────────────────────────────────────── */
+document.getElementById('switch').addEventListener('click', function(e) {
+    var btn = e.target.closest('button[data-set]');
+    if (!btn) return;
+    document.querySelectorAll('#switch button').forEach(function(b) { b.classList.toggle('on', b === btn); });
+    document.documentElement.dataset.v = btn.dataset.set;
+    renderGradeChips();
+    buildMarkers();
+    if (isOpen) close();
+});
 
 /* ── 지도 시작 ─────────────────────────────────────────────
    키에 등록되지 않은 주소에서는 naver.maps 객체는 멀쩡히 만들어지는데
-   타일만 안 내려온다. 그러면 빈 회색 화면이 되고 마커도 함께 사라진다.
-   객체 존재 여부만 보지 말고, 실제로 그려졌는지까지 확인해야 한다. */
+   타일만 안 내려온다. 객체 존재 여부만 보지 말고 실제로 그려졌는지까지 확인한다. */
 function setStat(text, ok) {
     var el = document.getElementById('mapstat');
     el.textContent = text;
@@ -826,7 +944,6 @@ function useFallback(reason, stat) {
     buildMarkers();
 }
 
-// 네이버가 인증 실패 시 호출해주는 전역 콜백
 window.navermap_authFailure = function() {
     useFallback('네이버 지도 키에 이 주소가 등록되지 않아 대체 배경으로 표시합니다', '인증 실패');
 };
@@ -839,9 +956,8 @@ if (hasNaver) {
         mapDataControl: false,
         scaleControl: false
     });
-    naver.maps.Event.addListener(map, 'click', close);
+    naver.maps.Event.addListener(map, 'click', function() { closePanels(); close(); });
 
-    // 인증 콜백이 오지 않고 조용히 비어 있는 경우까지 잡는다.
     // img 태그가 있는지가 아니라 '실제로 그려졌는지'를 봐야 한다. 회선이 느리면
     // 태그만 만들어진 채 그림이 안 내려와서, 개수만 세면 빈 화면을 정상으로 착각한다.
     setTimeout(function() {
@@ -862,11 +978,13 @@ if (hasNaver) {
 
 document.getElementById('map-fallback').addEventListener('click', function(e) {
     if (e.target.closest('.mk')) return;
+    closePanels();
     close();
 });
 
+renderGradeChips();
 buildMarkers();
-settle('closed', false);
+settle(false, false);
 </script>
 </body>
 </html>
