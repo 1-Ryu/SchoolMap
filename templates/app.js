@@ -360,7 +360,7 @@ function jsQuote(text) {
 // 배포(Vercel)에서는 templates/index.html이 루트로 서빙되어 ../data 상대경로가 어긋난다.
 // GitHub raw 절대주소를 쓰면 배포와 로컬 양쪽에서 같은 파일을 바라본다.
 // 데이터를 수정했을 때는 GitHub에도 올려야 배포본에 반영된다.
-var csvUrl = "https://raw.githubusercontent.com/1-Ryu/SchoolMap/refs/heads/main/data/%EB%8C%80%EA%B5%AC%EC%B4%88%EB%93%B1%ED%95%99%EA%B5%90_%EB%8D%B0%EC%9D%B4%ED%84%B0_%EC%A2%8C%ED%91%9C%EC%99%84%EB%A3%8C.csv";
+var csvUrl = "https://raw.githubusercontent.com/1-Ryu/daegu-school-map/refs/heads/main/data/%EB%8C%80%EA%B5%AC%EC%B4%88%EB%93%B1%ED%95%99%EA%B5%90_%EB%8D%B0%EC%9D%B4%ED%84%B0_%EC%A2%8C%ED%91%9C%EC%99%84%EB%A3%8C.csv";
 
 Papa.parse(csvUrl, {
     download: true,

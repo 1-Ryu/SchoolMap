@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+
+# 이 컴퓨터에만 해당하는 개인 권한 설정
+.claude/settings.local.json
