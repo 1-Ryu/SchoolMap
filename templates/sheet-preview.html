@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ko" data-v="a">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+<title>학교어디 — 시트 디자인 시안</title>
+
+<!-- 한글 본문용 가변 폰트. 첫인상의 상당 부분이 글자 모양에서 갈려서 시안에 포함한다. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=b5s4g3nfru"></script>
+
+<style>
+/* ══════════════════════════════════════════════════════════════
+   시안 A · B · C 공통 뼈대
+   색·둥글기·여백은 전부 변수로 빼두고, 시안별로 값만 갈아끼운다.
+   ══════════════════════════════════════════════════════════════ */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+body {
+    font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+                 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    color: var(--text);
+    background: var(--canvas);
+    -webkit-font-smoothing: antialiased;
+}
+/* 네이버 지도는 초기화할 때 컨테이너의 position을 relative로 덮어쓴다.
+   그러면 inset:0으로 잡아둔 크기가 무효가 되면서 높이가 0으로 무너지고,
+   타일은 정상적으로 받아왔는데 화면에는 아무것도 안 보이는 상태가 된다.
+   position에 기대지 말고 width/height를 직접 준다. */
+#map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+/* 지도 API가 막히는 환경(file:// 등)에서도 시안을 볼 수 있게 대체 배경을 깔아둔다. */
+#map-fallback {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none;
+    background:
+        linear-gradient(0deg,  rgba(0,0,0,.035) 1px, transparent 1px) 0 0 / 100% 46px,
+        linear-gradient(90deg, rgba(0,0,0,.035) 1px, transparent 1px) 0 0 / 46px 100%,
+        radial-gradient(120% 90% at 30% 20%, #EEF3EC 0%, #E8EDF2 55%, #E2E7EE 100%);
+}
+#map-fallback .note {
+    position: absolute; left: 50%; top: 18%; transform: translateX(-50%);
+    font-size: 12px; color: #98A2B3; white-space: nowrap;
+}
+
+/* ─── 시안 전환기 (제품 UI 아님) ───────────────────────────── */
+#switch {
+    position: fixed; z-index: 5000; right: 12px;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    display: flex; align-items: center; gap: 2px;
+    padding: 3px; border-radius: 999px;
+    background: rgba(18, 20, 26, .82);
+    backdrop-filter: saturate(160%) blur(12px);
+    -webkit-backdrop-filter: saturate(160%) blur(12px);
+    box-shadow: 0 4px 16px rgba(0,0,0,.24);
+}
+#switch b {
+    font-size: 10px; font-weight: 600; color: rgba(255,255,255,.5);
+    padding: 0 7px 0 6px; letter-spacing: .04em;
+}
+/* 지도가 왜 안 뜨는지 개발자도구 없이 알 수 있게 상태를 글자로 보여준다. */
+#mapstat {
+    font-size: 10px; font-weight: 600; color: rgba(255,255,255,.55);
+    padding: 0 9px 0 7px; margin-left: 2px; white-space: nowrap;
+    border-left: 1px solid rgba(255,255,255,.18);
+}
+#mapstat.ok { color: #6EE7A8; }
+#mapstat.bad { color: #FFA9A0; }
+#switch button {
+    border: 0; background: transparent; color: rgba(255,255,255,.62);
+    font: 600 12px/1 inherit; padding: 7px 11px; border-radius: 999px;
+    cursor: pointer; transition: background .16s, color .16s;
+}
+#switch button.on { background: #fff; color: #12141A; }
+
+/* ─── 상단 검색·필터 바 ────────────────────────────────────── */
+/* 지금 제품은 접속 즉시 드롭다운 6개가 펼쳐져 있다. 여기서는 한 줄로 줄이고
+   자세한 조건은 눌러서 여는 것을 전제로 그렸다. */
+#topbar {
+    position: absolute; z-index: 900;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    left: 12px; right: 64px;
+    display: flex; flex-direction: column; gap: 8px;
+    pointer-events: none;
+}
+#topbar > * { pointer-events: auto; }
+
+.searchfield {
+    display: flex; align-items: center; gap: 8px;
+    height: var(--field-h); padding: 0 14px;
+    background: var(--surface); border-radius: var(--r-field);
+    box-shadow: var(--shadow-float);
+    border: var(--field-border);
+}
+.searchfield svg { flex: 0 0 auto; color: var(--text-3); }
+.searchfield input {
+    flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+    font: 500 15px/1 inherit; color: var(--text);
+}
+.searchfield input::placeholder { color: var(--text-3); font-weight: 400; }
+
+.pills {
+    display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 2px;
+    scrollbar-width: none; -ms-overflow-style: none;
+}
+.pills::-webkit-scrollbar { display: none; }
+
+/* 검색 결과 목록 */
+#searchlist {
+    display: none; max-height: 46vh; overflow-y: auto;
+    background: var(--surface); border-radius: var(--r-field);
+    box-shadow: var(--shadow-float), 0 8px 28px rgba(16,24,40,.14);
+    border: var(--field-border); padding: 6px;
+}
+#searchlist.show { display: block; }
+#searchlist button {
+    display: flex; width: 100%; align-items: center; gap: 10px;
+    border: 0; background: transparent; cursor: pointer; text-align: left;
+    padding: 10px 10px; border-radius: calc(var(--r-field) - 6px);
+    font: 500 14px/1.3 inherit; color: var(--text);
+}
+#searchlist button:hover { background: var(--chip-bg); }
+#searchlist button i {
+    flex: 0 0 auto; width: 5px; height: 22px; border-radius: 2px; background: var(--mk);
+}
+#searchlist button em {
+    margin-left: auto; font-style: normal; font-size: 12px;
+    color: var(--text-3); font-weight: 500; font-variant-numeric: tabular-nums;
+}
+#searchlist .empty { padding: 14px 12px; font-size: 13px; color: var(--text-3); }
+.pill {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+    height: 34px; padding: 0 13px; border-radius: 999px;
+    background: var(--surface); color: var(--text-2);
+    font: 500 13px/1 inherit; white-space: nowrap; cursor: pointer;
+    border: var(--pill-border); box-shadow: var(--shadow-float);
+    transition: transform .12s ease, background .16s, color .16s;
+}
+.pill:active { transform: scale(.96); }
+.pill .caret { color: var(--text-3); font-size: 9px; }
+.pill.on {
+    background: var(--accent); color: var(--accent-on);
+    border-color: transparent;
+}
+.pill.on .caret { color: var(--accent-on); opacity: .7; }
+.pill.home { color: var(--accent); border-color: var(--accent-line); }
+.pill.home.on { color: var(--accent-on); }
+
+/* ─── 마커 ─────────────────────────────────────────────────── */
+.mk { cursor: pointer; transform-origin: 50% 100%; }
+.mk-dot {                       /* 시안 A */
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--mk); border: 3px solid #fff;
+    box-shadow: 0 1px 5px rgba(16,24,40,.28);
+    transition: transform .18s cubic-bezier(.34,1.56,.64,1);
+}
+.mk-pin {                       /* 시안 B */
+    width: 34px; height: 34px; border-radius: 50% 50% 50% 4px;
+    transform: rotate(45deg);
+    background: var(--mk); border: 2.5px solid #fff;
+    box-shadow: 0 3px 10px rgba(16,24,40,.26);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .18s cubic-bezier(.34,1.56,.64,1);
+}
+.mk-pin span {
+    transform: rotate(-45deg); color: #fff;
+    font: 700 13px/1 inherit; letter-spacing: -.02em;
+}
+.mk-tag {                       /* 시안 C */
+    display: flex; align-items: center; gap: 6px; height: 28px;
+    padding: 0 9px 0 7px; border-radius: 6px;
+    background: #fff; border: 1px solid var(--line);
+    box-shadow: 0 2px 8px rgba(16,24,40,.16);
+    font: 600 12px/1 inherit; color: var(--text); white-space: nowrap;
+    transition: transform .18s cubic-bezier(.34,1.56,.64,1);
+}
+.mk-tag i { width: 6px; height: 14px; border-radius: 2px; background: var(--mk); }
+.mk-tag em { font-style: normal; color: var(--text-3); font-weight: 500; }
+.mk.sel .mk-dot { transform: scale(1.55); }
+.mk.sel .mk-pin { transform: rotate(45deg) scale(1.18); }
+.mk.sel .mk-tag { transform: scale(1.08); border-color: var(--accent); }
+
+/* ─── 시트 ─────────────────────────────────────────────────── */
+#scrim {
+    position: absolute; inset: 0; z-index: 940;
+    background: rgba(16,24,40,.28); opacity: 0;
+    pointer-events: none; transition: opacity .32s ease;
+}
+#scrim.show { opacity: 1; pointer-events: auto; }
+
+#sheet {
+    position: absolute; z-index: 950;
+    left: 0; right: 0; bottom: 0; height: 88vh;
+    display: flex; flex-direction: column;
+    background: var(--sheet-bg);
+    border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+    box-shadow: 0 -8px 40px rgba(16,24,40,.16), 0 -1px 0 var(--sheet-hair);
+    transform: translateY(100%);
+    will-change: transform;
+    touch-action: none;
+}
+#sheet.animate { transition: transform .42s cubic-bezier(.32,.72,0,1); }
+
+.grabber { padding: 10px 0 4px; display: flex; justify-content: center; flex: 0 0 auto; }
+.grabber i { width: 36px; height: 4px; border-radius: 99px; background: var(--grab); }
+
+.sheet-head {
+    flex: 0 0 auto; display: flex; align-items: flex-start; gap: 12px;
+    padding: var(--head-pad);
+}
+.sheet-head .ttl { flex: 1; min-width: 0; }
+.sheet-head h2 {
+    margin: 0; font-size: var(--fs-title); font-weight: 700;
+    letter-spacing: -.03em; line-height: 1.28; color: var(--text);
+}
+.sheet-head p {
+    margin: var(--addr-mt) 0 0; font-size: 13px; line-height: 1.45;
+    color: var(--text-3); font-weight: 400;
+}
+#closeBtn {
+    flex: 0 0 auto; width: 30px; height: 30px; border: 0; cursor: pointer;
+    border-radius: 50%; background: var(--chip-bg); color: var(--text-2);
+    display: flex; align-items: center; justify-content: center;
+}
+
+.sheet-scroll {
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 var(--pad-x) calc(20px + env(safe-area-inset-bottom, 0px));
+}
+
+/* 배지 */
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--gap); }
+.badge {
+    display: inline-flex; align-items: center; height: 26px; padding: 0 10px;
+    border-radius: var(--r-badge); font: 600 12px/1 inherit; letter-spacing: -.01em;
+    background: var(--chip-bg); color: var(--text-2); border: var(--badge-border);
+}
+.badge.key { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+.badge.warm { background: var(--warm-soft); color: var(--warm-ink); border-color: transparent; }
+
+/* 통근 띠 — '우리집' 기능이 붙었을 때 무엇이 보일지 미리 그려둔 자리 */
+.commute {
+    display: flex; align-items: center; gap: 10px; margin-bottom: var(--gap);
+    padding: var(--commute-pad); border-radius: var(--r-card);
+    background: var(--commute-bg); border: var(--commute-border);
+}
+.commute .ic {
+    flex: 0 0 auto; width: 30px; height: 30px; border-radius: 9px;
+    background: var(--accent-soft); color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+}
+.commute .txt { flex: 1; min-width: 0; }
+.commute .txt b { display: block; font-size: 14px; font-weight: 600; letter-spacing: -.02em; }
+.commute .txt span { display: block; font-size: 12px; color: var(--text-3); margin-top: 1px; }
+
+/* 핵심 지표 */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: var(--gap); }
+.stat { padding: var(--stat-pad); text-align: var(--stat-align); }
+.stat .k { font-size: 11.5px; color: var(--text-3); font-weight: 500; letter-spacing: -.01em; }
+.stat .v {
+    margin-top: 3px; font-size: var(--fs-stat); font-weight: 700;
+    letter-spacing: -.03em; color: var(--text); font-variant-numeric: tabular-nums;
+}
+.stat .v u { text-decoration: none; font-size: 12px; font-weight: 500; color: var(--text-3); margin-left: 1px; }
+
+/* 항목 목록 */
+.rows { margin-bottom: var(--gap); }
+.rows .row {
+    display: flex; gap: 12px; align-items: baseline;
+    padding: var(--row-pad); border-bottom: 1px solid var(--line-soft);
+}
+.rows .row:last-child { border-bottom: 0; }
+.rows .k { flex: 0 0 var(--row-k); font-size: 13px; color: var(--text-3); font-weight: 500; }
+.rows .v { flex: 1; font-size: 13.5px; color: var(--text); font-weight: 500; letter-spacing: -.01em; }
+.rows .v.off { color: var(--text-3); font-weight: 400; }
+.rows .v small { font-size: 11.5px; color: var(--text-3); font-weight: 500; margin-left: 4px; }
+
+/* 길찾기 */
+.route { display: flex; gap: 8px; }
+.route button {
+    flex: 1; height: 48px; border-radius: var(--r-btn); cursor: pointer;
+    font: 600 14px/1 inherit; letter-spacing: -.02em;
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    transition: transform .12s ease, filter .16s;
+}
+.route button:active { transform: scale(.975); }
+.route .primary { border: 0; background: var(--accent); color: var(--accent-on); }
+.route .ghost { border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+.route-cap { margin: 8px 0 0; font-size: 11px; color: var(--text-3); text-align: center; }
+
+.sect { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--text-3); letter-spacing: -.01em; }
+
+/* ══════════════════════════════════════════════════════════════
+   시안 A — 정갈한 미니멀
+   원색을 하나로 줄이고, 선 대신 여백으로 묶는다.
+   ══════════════════════════════════════════════════════════════ */
+[data-v="a"] {
+    --canvas:#EDEFF3; --surface:#fff; --sheet-bg:#fff; --sheet-hair:transparent;
+    --text:#12141A; --text-2:#4A5261; --text-3:#8B93A3;
+    --line:#E4E7EC; --line-soft:#F0F2F5;
+    --accent:#2F6BFF; --accent-on:#fff; --accent-soft:#EBF1FF; --accent-ink:#1B4FD6; --accent-line:#C9DAFF;
+    --warm-soft:#FFF1E8; --warm-ink:#B5511C;
+    --chip-bg:#F3F5F8; --grab:#D7DBE3;
+    --commute-bg:#F7F9FC; --commute-border:0; --commute-pad:12px 14px;
+    --shadow-float:0 2px 12px rgba(16,24,40,.10);
+    --field-border:0; --pill-border:0; --badge-border:0;
+    --r-field:14px; --r-sheet:24px; --r-card:14px; --r-badge:8px; --r-btn:14px;
+    --field-h:48px; --pad-x:20px; --head-pad:6px 20px 14px; --gap:22px;
+    --fs-title:23px; --fs-stat:21px; --addr-mt:5px;
+    --stat-pad:0 0 0; --stat-align:left; --row-pad:11px 0; --row-k:74px;
+}
+[data-v="a"] .stats { gap: 4px; }
+[data-v="a"] .rows { border-top: 1px solid var(--line-soft); padding-top: 2px; }
+
+/* ══════════════════════════════════════════════════════════════
+   시안 B — 부드러운 카드형
+   회색 바탕 위에 흰 카드가 떠 있는 구성. 둥글기와 그림자를 키웠다.
+   ══════════════════════════════════════════════════════════════ */
+[data-v="b"] {
+    --canvas:#EFEFEC; --surface:#fff; --sheet-bg:#F5F5F3; --sheet-hair:transparent;
+    --text:#1A1A17; --text-2:#57574F; --text-3:#8E8E85;
+    --line:#E6E6E1; --line-soft:#EDEDE8;
+    --accent:#F2683C; --accent-on:#fff; --accent-soft:#FDEDE6; --accent-ink:#B84A22; --accent-line:#F8D3C4;
+    --warm-soft:#E9F3EC; --warm-ink:#2F6B44;
+    --chip-bg:#EAEAE5; --grab:#D3D3CC;
+    --commute-bg:#fff; --commute-border:0; --commute-pad:14px;
+    --shadow-float:0 3px 14px rgba(26,26,23,.10);
+    --field-border:0; --pill-border:0; --badge-border:0;
+    --r-field:18px; --r-sheet:28px; --r-card:18px; --r-badge:999px; --r-btn:16px;
+    --field-h:50px; --pad-x:16px; --head-pad:8px 20px 16px; --gap:12px;
+    --fs-title:23px; --fs-stat:22px; --addr-mt:5px;
+    --stat-pad:14px 10px; --stat-align:center; --row-pad:13px 16px; --row-k:74px;
+}
+/* 카드로 띄우기 */
+[data-v="b"] .stats,
+[data-v="b"] .rows {
+    background: #fff; border-radius: var(--r-card);
+    box-shadow: 0 1px 2px rgba(26,26,23,.06), 0 1px 8px rgba(26,26,23,.04);
+    overflow: hidden;
+}
+[data-v="b"] .commute { box-shadow: 0 1px 2px rgba(26,26,23,.06), 0 1px 8px rgba(26,26,23,.04); }
+[data-v="b"] .stat + .stat { border-left: 1px solid var(--line-soft); }
+[data-v="b"] .route { margin-top: 8px; }
+
+/* ══════════════════════════════════════════════════════════════
+   시안 C — 정보 밀도형
+   한 화면에 최대한 담고 눈으로 훑기 좋게. 부동산 앱에 가까운 결.
+   ══════════════════════════════════════════════════════════════ */
+[data-v="c"] {
+    --canvas:#EEF0F2; --surface:#fff; --sheet-bg:#fff; --sheet-hair:#E3E6EA;
+    --text:#0F172A; --text-2:#475569; --text-3:#94A3B8;
+    --line:#DFE3E8; --line-soft:#EDF0F3;
+    --accent:#1F3A5F; --accent-on:#fff; --accent-soft:#E8EEF6; --accent-ink:#1F3A5F; --accent-line:#C3D2E6;
+    --warm-soft:#FDEEE9; --warm-ink:#B3401C;
+    --chip-bg:#F1F4F7; --grab:#CBD2DA;
+    --commute-bg:#F7F9FB; --commute-border:1px solid #E6EBF0; --commute-pad:10px 12px;
+    --shadow-float:0 2px 10px rgba(15,23,42,.10);
+    --field-border:1px solid #E3E6EA; --pill-border:1px solid #E3E6EA; --badge-border:1px solid var(--line);
+    --r-field:10px; --r-sheet:16px; --r-card:10px; --r-badge:5px; --r-btn:10px;
+    --field-h:44px; --pad-x:16px; --head-pad:4px 16px 12px; --gap:14px;
+    --fs-title:20px; --fs-stat:20px; --addr-mt:3px;
+    --stat-pad:10px 8px; --stat-align:center; --row-pad:9px 0; --row-k:70px;
+}
+[data-v="c"] .stats {
+    border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden;
+    background: #FAFBFC;
+}
+[data-v="c"] .stat + .stat { border-left: 1px solid var(--line); }
+[data-v="c"] .rows { border-top: 1px solid var(--line); }
+[data-v="c"] .route button { height: 44px; font-size: 13.5px; }
+
+/* ══════════════════════════════════════════════════════════════
+   넓은 화면 — 하단 시트는 PC에서 어색하므로 좌측 패널로 바꾼다.
+   내용(HTML)은 그대로 두고 배치만 갈아끼운다.
+   ══════════════════════════════════════════════════════════════ */
+@media (min-width: 880px) {
+    /* 넓은 화면에서 폭을 패널 크기로 묶어두면 알약 줄이 잘린다.
+       가로를 열어주고, 손가락 스크롤이 없는 환경이니 줄바꿈으로 흘린다. */
+    #topbar { left: 20px; right: 190px; width: auto; }
+    .searchfield, #searchlist { max-width: 400px; }
+    .pills { flex-wrap: wrap; overflow: visible; row-gap: 6px; }
+    #sheet {
+        left: 20px; right: auto; width: 400px;
+        top: 116px; bottom: 20px; height: auto;
+        border-radius: var(--r-sheet);
+        transform: translateX(calc(-100% - 32px));
+        box-shadow: 0 12px 48px rgba(16,24,40,.18);
+    }
+    #sheet.animate { transition: transform .38s cubic-bezier(.32,.72,0,1), opacity .3s ease; }
+    .grabber { display: none; }
+    .sheet-head { padding-top: 18px; }
+    #scrim { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="map-fallback"><div class="note">지도 API가 로드되지 않아 대체 배경으로 표시합니다</div></div>
+
+<div id="topbar">
+    <div class="searchfield">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+        </svg>
+        <input type="text" placeholder="학교명으로 찾기" aria-label="학교명 검색">
+    </div>
+    <div class="pills">
+        <div class="pill home on">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round">
+                <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>
+            </svg>우리집 30분
+        </div>
+        <div class="pill">지원청<span class="caret">▾</span></div>
+        <div class="pill">급지<span class="caret">▾</span></div>
+        <div class="pill">학급수<span class="caret">▾</span></div>
+        <div class="pill">연구학교<span class="caret">▾</span></div>
+        <div class="pill">IB<span class="caret">▾</span></div>
+        <div class="pill">미래학교<span class="caret">▾</span></div>
+    </div>
+    <div id="searchlist"></div>
+</div>
+
+<div id="switch">
+    <b>시안</b>
+    <button data-set="a" class="on">A</button>
+    <button data-set="b">B</button>
+    <button data-set="c">C</button>
+    <span id="mapstat">지도 확인 중…</span>
+</div>
+
+<div id="scrim"></div>
+
+<div id="sheet" aria-hidden="true">
+    <div class="grabber"><i></i></div>
+    <div class="sheet-head">
+        <div class="ttl">
+            <h2 id="sName">학교명</h2>
+            <p id="sAddr">주소</p>
+        </div>
+        <button id="closeBtn" aria-label="닫기">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                <path d="M6 6l12 12M18 6L6 18"/>
+            </svg>
+        </button>
+    </div>
+    <div class="sheet-scroll">
+        <div class="badges" id="sBadges"></div>
+
+        <div class="commute">
+            <div class="ic">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round">
+                    <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>
+                </svg>
+            </div>
+            <div class="txt">
+                <b id="sCommute">—</b>
+                <span>우리집에서 · 직선거리 기준 예상값</span>
+            </div>
+        </div>
+
+        <div class="stats" id="sStats"></div>
+        <div class="rows" id="sRows"></div>
+
+        <div class="route">
+            <button class="primary">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round">
+                    <path d="M5 17h14M6.5 17V11l1.8-4h7.4l1.8 4v6"/><circle cx="8" cy="17" r="1.6"/><circle cx="16" cy="17" r="1.6"/>
+                </svg>자동차 길찾기
+            </button>
+            <button class="ghost">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round">
+                    <rect x="5" y="4" width="14" height="12" rx="2.5"/><path d="M5 10h14M8 20l1.5-4M16 20l-1.5-4"/>
+                </svg>대중교통
+            </button>
+        </div>
+        <p class="route-cap">네이버 지도에서 열립니다</p>
+    </div>
+</div>
+
+<script>
+/* ── 시안용 표본. 실제 CSV에서 그대로 가져온 값이다. ───────────── */
+var SCHOOLS = [
+{n:'경북대학교사범대학부설초등학교(국립)',d:'동부',a:'대구광역시 중구 달구벌대로 2150',g:'',cr:24,cs:1,ct:25,rt:'학생주도탐구학습',ry:1,rn:2,ib:'월드',fy:'',fn:''},
+{n:'계성초등학교(사립)',d:'동부',a:'대구광역시 중구 달성로 15',g:'',cr:24,cs:0,ct:24,rt:'',ry:'',rn:'',ib:'',fy:'',fn:''},
+{n:'남대구초등학교',d:'남부',a:'대구광역시 남구 중앙대로47길 55',g:'라',cr:11,cs:1,ct:12,rt:'',ry:'',rn:'',ib:'',fy:5,fn:5},
+{n:'대구가창초등학교',d:'달성',a:'대구광역시 달성군 가창면 가창로 640',g:'다',cr:7,cs:1,ct:8,rt:'학교자율성(IB후보)',ry:1,rn:2,ib:'후보',fy:'',fn:''},
+{n:'대구감삼초등학교',d:'남부',a:'대구광역시 달서구 당산로 123',g:'라',cr:13,cs:1,ct:14,rt:'대용부설',ry:1,rn:3,ib:'',fy:'',fn:''},
+{n:'대구감천초등학교',d:'남부',a:'대구광역시 달서구 구마로12길 60',g:'다',cr:12,cs:2,ct:14,rt:'',ry:'',rn:'',ib:'',fy:'',fn:''},
+{n:'대구강동초등학교',d:'동부',a:'대구광역시 동구 동호로7길 17',g:'나',cr:32,cs:1,ct:33,rt:'',ry:'',rn:'',ib:'',fy:'',fn:''},
+{n:'대구강림초등학교',d:'달성',a:'대구광역시 달성군 옥포읍 돌미로 15',g:'다',cr:36,cs:2,ct:38,rt:'',ry:'',rn:'',ib:'',fy:'',fn:''},
+{n:'대구강북초등학교',d:'서부',a:'대구광역시 북구 구암서로 50',g:'가',cr:23,cs:2,ct:25,rt:'',ry:'',rn:'',ib:'',fy:'',fn:''},
+{n:'대구경동초등학교',d:'동부',a:'대구광역시 수성구 청호로76길 12',g:'가',cr:58,cs:0,ct:58,rt:'',ry:'',rn:'',ib:'',fy:'',fn:''},
+{n:'대구경운초등학교',d:'서부',a:'대구광역시 서구 평리로54길 16',g:'나',cr:14,cs:2,ct:16,rt:'',ry:'',rn:'',ib:'',fy:1,fn:4},
+{n:'대구경진초등학교',d:'서부',a:'대구광역시 북구 경진로12길 5',g:'라',cr:6,cs:1,ct:7,rt:'',ry:'',rn:'',ib:'',fy:'',fn:''},
+{n:'대구고산초등학교',d:'동부',a:'대구광역시 수성구 달구벌대로 3067',g:'가',cr:27,cs:2,ct:29,rt:'',ry:'',rn:'',ib:'',fy:1,fn:4},
+{n:'대구공산초등학교',d:'동부',a:'대구광역시 동구 팔공로197길 35',g:'라',cr:6,cs:0,ct:6,rt:'',ry:'',rn:'',ib:'',fy:1,fn:4},
+{n:'대구관남초등학교',d:'서부',a:'대구광역시 북구 칠곡중앙대로91길 10',g:'다',cr:12,cs:1,ct:13,rt:'',ry:'',rn:'',ib:'',fy:'',fn:''},
+{n:'대구관문초등학교',d:'서부',a:'대구광역시 북구 매전로 32',g:'가',cr:30,cs:2,ct:32,rt:'',ry:'',rn:'',ib:'',fy:'',fn:''},
+{n:'대구관음초등학교',d:'서부',a:'대구광역시 북구 관음동로17길 16',g:'라',cr:8,cs:1,ct:9,rt:'',ry:'',rn:'',ib:'',fy:'',fn:''},
+{n:'대구교동초등학교',d:'서부',a:'대구광역시 북구 관음중앙로34길 4',g:'다',cr:8,cs:2,ct:10,rt:'기초학력',ry:2,rn:2,ib:'',fy:'',fn:''}
+];
+var COORD = [
+[35.86357598,128.5983647],[35.86566471,128.5811278],[35.8535641,128.5864808],
+[35.77102937,128.6482703],[35.84914399,128.545555],[35.83522361,128.5330966],
+[35.86805865,128.7299007],[35.78117282,128.4369578],[35.94086182,128.5667658],
+[35.85219753,128.6393734],[35.86091064,128.5529435],[35.89190742,128.6171814],
+[35.84408951,128.6928066],[35.95681748,128.6897923],[35.93683639,128.54779],
+[35.90832926,128.5462968],[35.93996044,128.5470789],[35.94475315,128.5494327]
+];
+SCHOOLS.forEach(function(s, i) { s.lat = COORD[i][0]; s.lng = COORD[i][1]; });
+
+/* 시안용 '우리집'. 실제로는 사용자가 지도에서 찍은 좌표가 들어간다. */
+var HOME = { lat: 35.8714354, lng: 128.601445 };
+
+/* 급지별 색. 원색 4개를 나열하지 않고 한 계열의 농도 차이로 구분한다. */
+var GRADE_TONE = { '가':'#2F6BFF', '나':'#5B8DEF', '다':'#93AECF', '라':'#B9C4D4', '':'#A9B2C0' };
+var GRADE_TONE_B = { '가':'#E2552B', '나':'#F0855C', '다':'#F0B48F', '라':'#DCC9BC', '':'#C9C4BC' };
+
+function toneFor(g) {
+    return document.documentElement.dataset.v === 'b'
+        ? (GRADE_TONE_B[g || ''] || GRADE_TONE_B[''])
+        : (GRADE_TONE[g || ''] || GRADE_TONE['']);
+}
+function has(v) {
+    return v !== null && v !== undefined && String(v).trim() !== '' && String(v) !== '-';
+}
+function shortName(n) {
+    var s = n.replace(/\(.*\)/, '').replace(/^대구/, '').replace(/초등학교$/, '초');
+    // 라벨 폭이 제각각이면 지도가 어수선해 보인다. 긴 이름은 잘라서 폭을 맞춘다.
+    return s.length > 7 ? s.slice(0, 6) + '…' : s;
+}
+
+/* 직선거리(하버사인) → 도심 평균 속도로 어림한 시간.
+   실제 소요시간이 아니라, 거리 필터가 붙었을 때 보일 형태를 미리 확인하려는 값이다. */
+function distanceKm(a, b) {
+    var R = 6371, toRad = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * toRad, dLng = (b.lng - a.lng) * toRad;
+    var la1 = a.lat * toRad, la2 = b.lat * toRad;
+    var h = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)*Math.sin(dLng/2);
+    return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/* ── 지도 ─────────────────────────────────────────────────── */
+var map = null, markers = [], selected = null;
+var hasNaver = typeof naver !== 'undefined' && naver.maps;
+
+function markerHTML(s, variant) {
+    var tone = toneFor(s.g);
+    if (variant === 'b') {
+        return '<div class="mk"><div class="mk-pin" style="--mk:' + tone + '"><span>' + (s.g || '·') + '</span></div></div>';
+    }
+    if (variant === 'c') {
+        return '<div class="mk"><div class="mk-tag" style="--mk:' + tone + '"><i></i>' +
+               shortName(s.n) + ' <em>' + s.ct + '</em></div></div>';
+    }
+    return '<div class="mk"><div class="mk-dot" style="--mk:' + tone + '"></div></div>';
+}
+
+function buildMarkers() {
+    var variant = document.documentElement.dataset.v;
+
+    // 인증에 실패한 지도에 붙어 있던 마커는 정리 중에 예외를 던진다.
+    // 여기서 멈추면 새 마커를 한 개도 못 그려서 화면이 통째로 비어버린다.
+    markers.forEach(function(m) {
+        try { if (m.setMap) m.setMap(null); else m.remove(); } catch (err) {}
+    });
+    markers = [];
+    selected = null;
+
+    SCHOOLS.forEach(function(s) {
+        var html = markerHTML(s, variant);
+
+        if (hasNaver) {
+            var size = variant === 'c' ? [96, 28] : (variant === 'b' ? [34, 34] : [20, 20]);
+            var m = new naver.maps.Marker({
+                position: new naver.maps.LatLng(s.lat, s.lng),
+                map: map,
+                icon: { content: html, anchor: new naver.maps.Point(size[0] / 2, size[1] / 2) }
+            });
+            naver.maps.Event.addListener(m, 'click', function() { select(s, m); });
+            markers.push(m);
+        } else {
+            // 대체 배경일 때는 좌표를 화면 비율로 환산해 그대로 얹는다.
+            var el = document.createElement('div');
+            el.innerHTML = html;
+            el = el.firstChild;
+            el.style.position = 'absolute';
+            el.style.left = ((s.lng - 128.42) / (128.74 - 128.42) * 88 + 6) + '%';
+            el.style.top  = ((35.97 - s.lat) / (35.97 - 35.76) * 74 + 13) + '%';
+            el.style.transform = 'translate(-50%, -50%)';
+            el.style.zIndex = 100;
+            el.addEventListener('click', function() { select(s, el); });
+            document.getElementById('map-fallback').appendChild(el);
+            markers.push(el);
+        }
+    });
+}
+
+function markerEl(m) {
+    if (!hasNaver) return m;
+    var el = m.getElement && m.getElement();
+    return el ? el.querySelector('.mk') || el : null;
+}
+
+/* ── 시트 내용 채우기 ─────────────────────────────────────── */
+function fill(s) {
+    document.getElementById('sName').textContent = s.n.replace(/\((국립|사립)\)/, '');
+    document.getElementById('sAddr').textContent = s.a;
+
+    var km = distanceKm(HOME, s);
+    var min = Math.max(5, Math.round(km / 22 * 60 + 6));
+    document.getElementById('sCommute').textContent =
+        '직선 ' + km.toFixed(1) + 'km · 차로 약 ' + min + '분';
+
+    var badges = [];
+    badges.push({ t: s.d + '교육지원청', c: '' });
+    if (has(s.g)) badges.push({ t: s.g + '급지', c: 'key' });
+    if (s.n.indexOf('(국립)') > -1) badges.push({ t: '국립', c: '' });
+    if (s.n.indexOf('(사립)') > -1) badges.push({ t: '사립', c: '' });
+    if (has(s.rt)) badges.push({ t: '연구학교', c: 'warm' });
+    if (has(s.ib)) badges.push({ t: 'IB ' + s.ib + '학교', c: 'warm' });
+    if (has(s.fn)) badges.push({ t: '미래학교', c: 'warm' });
+    document.getElementById('sBadges').innerHTML = badges.map(function(b) {
+        return '<span class="badge ' + b.c + '">' + b.t + '</span>';
+    }).join('');
+
+    document.getElementById('sStats').innerHTML =
+        '<div class="stat"><div class="k">총 학급</div><div class="v">' + s.ct + '<u>학급</u></div></div>' +
+        '<div class="stat"><div class="k">일반 / 특수</div><div class="v">' + s.cr + '<u> / </u>' + s.cs + '</div></div>' +
+        '<div class="stat"><div class="k">집에서</div><div class="v">' + km.toFixed(1) + '<u>km</u></div></div>';
+
+    function row(k, on, v) {
+        return '<div class="row"><div class="k">' + k + '</div>' +
+               '<div class="v' + (on ? '' : ' off') + '">' + (on ? v : '해당 없음') + '</div></div>';
+    }
+    var size = s.ct >= 30 ? '대규모' : (s.ct >= 13 ? '중규모' : '소규모');
+    document.getElementById('sRows').innerHTML =
+        row('연구학교', has(s.rt), s.rt + (has(s.ry) ? '<small>' + s.ry + '/' + s.rn + '년차</small>' : '')) +
+        row('IB', has(s.ib), s.ib + '학교') +
+        row('미래학교', has(s.fn), has(s.fy) ? s.fy + '/' + s.fn + '년차' : s.fn + '년') +
+        row('학급 규모', true, size + '<small>대구 초등 평균 19학급</small>');
+}
+
+function select(s, m) {
+    if (selected) { var pe = markerEl(selected); if (pe) pe.classList.remove('sel'); }
+    selected = m;
+    var el = markerEl(m); if (el) el.classList.add('sel');
+
+    fill(s);
+    open(isWide() ? 'full' : 'half');
+}
+
+/* ── 시트 동작 ─────────────────────────────────────────────
+   높이를 세 지점(살짝·절반·전체)에 스냅시키고, 손을 떼는 순간의 속도로
+   다음 지점을 정한다. 이 감각이 시트 품질의 대부분을 차지한다. */
+var sheet = document.getElementById('sheet');
+var scrim = document.getElementById('scrim');
+var scroll = sheet.querySelector('.sheet-scroll');
+var H = 0, snaps = {}, current = 'closed', y = 0;
+
+function isWide() { return window.matchMedia('(min-width: 880px)').matches; }
+
+function measure() {
+    H = sheet.offsetHeight;
+    snaps = {
+        closed: H,
+        peek: Math.max(0, H - 168),
+        half: Math.max(0, H - Math.round(window.innerHeight * 0.52)),
+        full: 0
+    };
+}
+measure();
+window.addEventListener('resize', function() { measure(); if (current !== 'closed') settle(current, false); });
+
+function setY(v) {
+    y = v;
+    sheet.style.transform = isWide() ? '' : 'translateY(' + v + 'px)';
+}
+
+function settle(state, animate) {
+    current = state;
+    sheet.classList.toggle('animate', animate !== false);
+    if (isWide()) {
+        sheet.style.transform = state === 'closed' ? 'translateX(calc(-100% - 32px))' : 'translateX(0)';
+    } else {
+        setY(snaps[state]);
+    }
+    scrim.classList.toggle('show', state === 'full' || state === 'half');
+    sheet.setAttribute('aria-hidden', state === 'closed' ? 'true' : 'false');
+    if (state !== 'full') scroll.scrollTop = 0;
+}
+
+function open(state) {
+    // 폰트나 주소창 높이가 늦게 확정되면 처음 잰 값이 틀어진다. 열 때마다 다시 잰다.
+    measure();
+    if (current === 'closed') { sheet.classList.remove('animate'); setY(snaps.closed); void sheet.offsetHeight; }
+    requestAnimationFrame(function() { settle(state || 'half', true); });
+}
+function close() { settle('closed', true); if (selected) { var e = markerEl(selected); if (e) e.classList.remove('sel'); selected = null; } }
+
+document.getElementById('closeBtn').addEventListener('click', close);
+scrim.addEventListener('click', close);
+
+/* 끌기 */
+var drag = null;
+
+function startDrag(e) {
+    if (isWide()) return;
+    var fromScroll = scroll.contains(e.target);
+    if (fromScroll && scroll.scrollTop > 0) return;      // 목록을 읽는 중이면 시트를 끌지 않는다
+    drag = { y0: e.clientY, start: y, last: e.clientY, t: e.timeStamp, v: 0, fromScroll: fromScroll, moved: false };
+    sheet.classList.remove('animate');
+    sheet.setPointerCapture(e.pointerId);
+}
+function moveDrag(e) {
+    if (!drag) return;
+    var dy = e.clientY - drag.y0;
+    if (drag.fromScroll && dy < 0 && !drag.moved) { drag = null; return; }  // 위로 미는 건 스크롤에 넘긴다
+    if (Math.abs(dy) > 3) drag.moved = true;
+
+    var dt = e.timeStamp - drag.t;
+    if (dt > 0) { drag.v = (e.clientY - drag.last) / dt; drag.last = e.clientY; drag.t = e.timeStamp; }
+
+    var next = drag.start + dy;
+    if (next < 0) next = next * 0.28;                     // 끝을 넘기면 저항이 걸린다
+    setY(Math.min(next, snaps.closed));
+    e.preventDefault();
+}
+function endDrag() {
+    if (!drag) return;
+    var v = drag.v, d = drag;
+    drag = null;
+    if (!d.moved) return;
+
+    var order = ['full', 'half', 'peek', 'closed'];
+    var idx = order.indexOf(current);
+
+    if (v > 0.45)      settle(order[Math.min(idx + 1, 3)], true);   // 아래로 튕김
+    else if (v < -0.45) settle(order[Math.max(idx - 1, 0)], true);  // 위로 튕김
+    else {
+        var best = 'closed', gap = Infinity;
+        order.forEach(function(k) {
+            var g = Math.abs(snaps[k] - y);
+            if (g < gap) { gap = g; best = k; }
+        });
+        settle(best, true);
+    }
+    if (current === 'closed') close();
+}
+
+sheet.addEventListener('pointerdown', startDrag);
+sheet.addEventListener('pointermove', moveDrag);
+sheet.addEventListener('pointerup', endDrag);
+sheet.addEventListener('pointercancel', endDrag);
+
+/* ── 시안 전환 ─────────────────────────────────────────────── */
+document.getElementById('switch').addEventListener('click', function(e) {
+    var btn = e.target.closest('button[data-set]');
+    if (!btn) return;
+    document.querySelectorAll('#switch button').forEach(function(b) { b.classList.toggle('on', b === btn); });
+    document.documentElement.dataset.v = btn.dataset.set;
+    buildMarkers();
+    if (current !== 'closed') close();
+});
+
+/* ── 학교 목록 검색 ─────────────────────────────────────────
+   시안이라도 시트를 다시 열 방법은 있어야 한다. 마커를 못 찾겠을 때의 퇴로. */
+var sInput = document.querySelector('.searchfield input');
+var sList = document.getElementById('searchlist');
+
+function renderList(q) {
+    var hit = [];
+    SCHOOLS.forEach(function(s, i) { if (!q || s.n.indexOf(q) > -1) hit.push([s, i]); });
+
+    sList.innerHTML = hit.length === 0
+        ? '<div class="empty">일치하는 학교가 없습니다</div>'
+        : hit.map(function(p) {
+              return '<button data-i="' + p[1] + '"><i style="--mk:' + toneFor(p[0].g) + '"></i>' +
+                     p[0].n.replace(/\((국립|사립)\)/, '') + '<em>' + p[0].ct + '학급</em></button>';
+          }).join('');
+    sList.classList.add('show');
+}
+
+sInput.addEventListener('focus', function() { renderList(sInput.value.trim()); });
+sInput.addEventListener('input', function() { renderList(sInput.value.trim()); });
+
+sList.addEventListener('click', function(e) {
+    var btn = e.target.closest('button[data-i]');
+    if (!btn) return;
+    var i = parseInt(btn.dataset.i, 10);
+    sList.classList.remove('show');
+    sInput.blur();
+
+    var m = markers[i];
+    if (map && m && m.getPosition) {
+        map.setCenter(m.getPosition());
+        map.setZoom(14);
+    }
+    select(SCHOOLS[i], m);
+});
+
+document.addEventListener('pointerdown', function(e) {
+    if (!e.target.closest('#topbar')) sList.classList.remove('show');
+}, true);
+
+/* ── 지도 시작 ─────────────────────────────────────────────
+   키에 등록되지 않은 주소에서는 naver.maps 객체는 멀쩡히 만들어지는데
+   타일만 안 내려온다. 그러면 빈 회색 화면이 되고 마커도 함께 사라진다.
+   객체 존재 여부만 보지 말고, 실제로 그려졌는지까지 확인해야 한다. */
+function setStat(text, ok) {
+    var el = document.getElementById('mapstat');
+    el.textContent = text;
+    el.className = ok ? 'ok' : 'bad';
+}
+
+function useFallback(reason, stat) {
+    setStat(stat, false);
+    if (!hasNaver) return;
+    hasNaver = false;
+    map = null;
+    document.getElementById('map').style.display = 'none';
+    var fb = document.getElementById('map-fallback');
+    fb.style.display = 'block';
+    fb.querySelector('.note').textContent = reason;
+    buildMarkers();
+}
+
+// 네이버가 인증 실패 시 호출해주는 전역 콜백
+window.navermap_authFailure = function() {
+    useFallback('네이버 지도 키에 이 주소가 등록되지 않아 대체 배경으로 표시합니다', '인증 실패');
+};
+
+if (hasNaver) {
+    map = new naver.maps.Map('map', {
+        center: new naver.maps.LatLng(35.8714354, 128.601445),
+        zoom: 12,
+        logoControl: true,
+        mapDataControl: false,
+        scaleControl: false
+    });
+    naver.maps.Event.addListener(map, 'click', close);
+
+    // 인증 콜백이 오지 않고 조용히 비어 있는 경우까지 잡는다.
+    // img 태그가 있는지가 아니라 '실제로 그려졌는지'를 봐야 한다. 회선이 느리면
+    // 태그만 만들어진 채 그림이 안 내려와서, 개수만 세면 빈 화면을 정상으로 착각한다.
+    setTimeout(function() {
+        if (!hasNaver) return;
+        var el = document.getElementById('map');
+        var drawn = el.querySelectorAll('canvas').length;
+        Array.prototype.forEach.call(el.querySelectorAll('img'), function(img) {
+            if (img.complete && img.naturalWidth > 0) drawn++;
+        });
+        if (drawn === 0) useFallback('지도 타일을 불러오지 못해 대체 배경으로 표시합니다', '타일 0개');
+        else setStat('지도 정상 · 타일 ' + drawn, true);
+    }, 4000);
+} else {
+    setStat('API 미로드', false);
+    document.getElementById('map').style.display = 'none';
+    document.getElementById('map-fallback').style.display = 'block';
+}
+
+document.getElementById('map-fallback').addEventListener('click', function(e) {
+    if (e.target.closest('.mk')) return;
+    close();
+});
+
+buildMarkers();
+settle('closed', false);
+</script>
+</body>
+</html>
