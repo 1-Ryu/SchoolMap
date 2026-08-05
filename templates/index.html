@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
     <title>학교어디(대구초등학교맵)</title>
     <meta name="description" content="전보 희망학교를 지도에서 한눈에. 교육지원청·급지·학급수·연구학교·IB·미래학교 조건으로 찾아보세요.">
 
@@ -19,97 +19,135 @@
     <meta property="og:url" content="https://school-map-psi.vercel.app/">
     <meta name="twitter:card" content="summary_large_image">
 
+    <!-- 🌟 한글 본문용 가변 폰트 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+
     <!-- 🌟 외부 라이브러리 (네이버 지도, PapaParse) -->
     <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=b5s4g3nfru"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    
+
     <!-- 🌟 디자인(CSS) 파일 연결 -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="search-box">
-        <input type="text" id="searchInput" placeholder="학교명 검색 (예: 공산초)" onkeypress="if(event.keyCode==13) searchSchool()">
-        <button id="searchBtn" onclick="searchSchool()">검색</button>
-        <button id="toggleFilterBtn" onclick="toggleFilterPanel()" style="padding: 8px 16px; background: #7F8C8D; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: bold; white-space: nowrap; flex-shrink: 0;">▲ 세부검색</button>
+
+<div id="map"></div>
+
+<div id="topbar">
+    <div class="searchfield" id="searchfield">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+        </svg>
+        <input type="text" id="searchInput" placeholder="학교명으로 찾기 (예: 공산초)" aria-label="학교명 검색" autocomplete="off">
+        <button id="searchClear" aria-label="지우기">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                <path d="M6 6l12 12M18 6L6 18"/>
+            </svg>
+        </button>
     </div>
 
-    <div id="filter-box">
-        <select id="filter-district" onchange="applyFilters()">
-            <option value="전체">지원청: 전체</option>
-            <option value="동부">동부</option>
-            <option value="서부">서부</option>
-            <option value="남부">남부</option>
-            <option value="달성">달성</option>
-            <option value="군위">군위</option>
-        </select>
-        
-        <div id="filter-grade" style="display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #D5D8DC; border-radius: 4px; font-size: 13px; background: white; height: 34px; box-sizing: border-box;">
-            <span style="color: #555; font-weight: bold;">급지:</span>
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
-                <input type="checkbox" value="가" class="grade-cb cb-ga" checked onchange="applyFilters()">가
-            </label>
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
-                <input type="checkbox" value="나" class="grade-cb cb-na" checked onchange="applyFilters()">나
-            </label>
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
-                <input type="checkbox" value="다" class="grade-cb cb-da" checked onchange="applyFilters()">다
-            </label>
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
-                <input type="checkbox" value="라" class="grade-cb cb-ra" checked onchange="applyFilters()">라
-            </label>
-        </div>
-
-        <div class="filter-break"></div>
-
-        <select id="filter-research" onchange="applyFilters()">
-            <option value="미설정">연구학교: 미설정</option>
-            <option value="지정교">연구학교: 지정교</option>
-            <option value="미지정교">연구학교: 미지정교</option>
-        </select>
-        
-        <select id="filter-ib" onchange="applyFilters()">
-            <option value="미설정">IB학교: 미설정</option>
-            <option value="지정교">IB학교: 지정교(전체)</option>
-            <option value="관심">관심학교</option>
-            <option value="후보">후보학교</option>
-            <option value="월드">월드스쿨</option>
-            <option value="미지정교">IB학교: 미지정교</option>
-        </select>
-        
-        <select id="filter-future" onchange="applyFilters()">
-            <option value="미설정">미래학교: 미설정</option>
-            <option value="지정교">미래학교: 지정교</option>
-            <option value="미지정교">미래학교: 미지정교</option>
-        </select>
-
-        <div class="filter-break"></div>
-
-        <div class="filter-mode-box" style="display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #3498DB; border-radius: 4px; font-size: 13px; background: #EAF2F8; margin-left: 5px; height: 34px; box-sizing: border-box;">
-            <span style="color: #2980B9; font-weight: bold;">검색조건:</span>
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
-                <input type="radio" name="filter-mode" value="and" checked onchange="applyFilters()"> 모두 만족(교집합)
-            </label>
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 3px;">
-                <input type="radio" name="filter-mode" value="or" onchange="applyFilters()"> 하나라도(합집합)
-            </label>
-        </div>
-
-        <div class="filter-break"></div>
-
-        <div class="filter-class-box" style="display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #D5D8DC; border-radius: 4px; font-size: 13px; background: white; margin-left: 5px; height: 34px; box-sizing: border-box;">
-            <span style="color: #555; font-weight: bold;">학급수(이상):</span>
-            <input type="range" id="filter-class-count" min="1" max="70" value="1" oninput="updateClassCountDisplay()" onchange="applyFilters()" style="width: 80px; accent-color: #3498DB; cursor: pointer;">
-            <span id="class-count-display" style="font-weight: bold; color: #2980B9; width: 20px; text-align: right;">1</span><span>학급</span>
-        </div>
-
-        <label class="filter-boundary" style="margin-left: 13px; font-weight: bold; cursor: pointer; display: flex; align-items: center; height: 34px;">
-            <input type="checkbox" id="toggle-boundary" onchange="toggleBoundaries()"> 지원청 구역
-        </label>
+    <div class="pills">
+        <button id="filterBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <path d="M4 6h16M7 12h10M10 18h4"/>
+            </svg>필터<span class="cnt" id="filterCount">0</span>
+        </button>
+        <button class="pill" id="boundaryPill">지원청 구역</button>
+        <button class="pill" id="resetPill">전체 보기</button>
     </div>
-    
-    <div id="map"></div>
 
-    <!-- 🌟 작동(JavaScript) 파일 연결 (body 태그 닫기 직전에 넣는 것이 정석입니다) -->
-    <script src="app.js"></script>
+    <div id="searchlist"></div>
+
+    <div id="filterpanel">
+        <div class="fgroup">
+            <h4>교육지원청</h4>
+            <div class="fchips" id="fDistrict"></div>
+        </div>
+
+        <div class="fgroup">
+            <h4>급지</h4>
+            <div class="fchips" id="fGrade"></div>
+            <p class="fnote">지도 마커의 색이 급지를 뜻합니다. 진할수록 높은 급지입니다.</p>
+        </div>
+
+        <div class="fgroup">
+            <h4>학급수 (이상)</h4>
+            <div class="frange">
+                <input type="range" id="fClass" min="1" max="70" value="1">
+                <b id="fClassVal">전체</b>
+            </div>
+        </div>
+
+        <div class="fgroup">
+            <h4>연구학교</h4>
+            <div class="fchips" id="fResearch"></div>
+        </div>
+
+        <div class="fgroup">
+            <h4>IB학교</h4>
+            <div class="fchips" id="fIb"></div>
+        </div>
+
+        <div class="fgroup">
+            <h4>미래학교</h4>
+            <div class="fchips" id="fFuture"></div>
+        </div>
+
+        <div class="fgroup">
+            <h4>지정 조건 결합 방식</h4>
+            <div class="fchips" id="fMode"></div>
+            <p class="fnote">연구학교·IB·미래학교 조건을 둘 이상 골랐을 때 어떻게 묶을지 정합니다.</p>
+        </div>
+
+        <div class="factions">
+            <button class="reset" id="fReset">초기화</button>
+            <button class="apply" id="fApply">학교 보기</button>
+        </div>
+    </div>
+</div>
+
+<div id="scrim"></div>
+
+<div id="sheet" aria-hidden="true">
+    <div class="sheet-top">
+        <div class="grabber"><i></i></div>
+        <div class="sheet-head">
+            <div class="ttl">
+                <h2 id="sName">학교명</h2>
+                <p id="sAddr">주소</p>
+            </div>
+            <button id="closeBtn" aria-label="닫기">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                    <path d="M6 6l12 12M18 6L6 18"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="sheet-scroll">
+        <div class="badges" id="sBadges"></div>
+        <div class="stats" id="sStats"></div>
+        <div class="rows" id="sRows"></div>
+
+        <div class="route">
+            <button class="primary" id="routeCar">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round">
+                    <path d="M5 17h14M6.5 17V11l1.8-4h7.4l1.8 4v6"/><circle cx="8" cy="17" r="1.6"/><circle cx="16" cy="17" r="1.6"/>
+                </svg>자동차 길찾기
+            </button>
+            <button class="ghost" id="routeBus">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round">
+                    <rect x="5" y="4" width="14" height="12" rx="2.5"/><path d="M5 10h14M8 20l1.5-4M16 20l-1.5-4"/>
+                </svg>대중교통
+            </button>
+        </div>
+        <p class="route-cap">네이버 지도에서 열립니다</p>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- 🌟 작동(JavaScript) 파일 연결 (body 태그 닫기 직전에 넣는 것이 정석입니다) -->
+<script src="app.js"></script>
 </body>
 </html>

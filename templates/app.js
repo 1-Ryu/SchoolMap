@@ -1,13 +1,91 @@
-var mapOptions = {
+/* ══════════════════════════════════════════════════════════════
+   학교어디 — 대구 초등학교 지도
+   ══════════════════════════════════════════════════════════════ */
+
+var map = new naver.maps.Map('map', {
     center: new naver.maps.LatLng(35.8714354, 128.601445),
-    zoom: 12
+    zoom: 12,
+    mapDataControl: false,
+    scaleControl: false
+});
+
+/* ── 급지 색 ───────────────────────────────────────────────────
+   한 계열 안에서 밝기를 네 단계로 고르게 벌린다. 색을 구분하지 못해도
+   진하기만으로 순서가 읽히게 하려는 것이다.
+   밝은 단계는 흰 숫자가 안 읽혀서 글자색을 짝으로 함께 지정한다. */
+/* 한 계열 안에서 밝기를 네 단계로 고르게 벌린다. 색을 구분하지 못해도
+   진하기만으로 순서가 읽히게 하려는 것이다.
+   숫자는 네 단계 모두 흰색으로 통일했다. 다·라는 배경이 밝아 대비가 낮으므로
+   (다 2.1:1, 라 1.4:1) 숫자가 흐리게 보인다면 글자에 외곽선을 넣어야 한다. */
+var GRADE_TONE = {
+    '가': { b: '#A6390F', f: '#ffffff' },
+    '나': { b: '#E4622C', f: '#ffffff' },
+    '다': { b: '#F59F55', f: '#ffffff' },
+    '라': { b: '#FBD7AE', f: '#ffffff' },
+    '':   { b: '#C6C0B6', f: '#ffffff' }    // 급지가 없는 국립·사립
 };
-var map = new naver.maps.Map('map', mapOptions);
+var GRADES = ['가', '나', '다', '라'];
 
-var boundaryPolygons = []; 
+function toneFor(g) { return GRADE_TONE[g || ''] || GRADE_TONE['']; }
 
-console.log("🗺️ 실시간 대구 경계선 그리기 시작!");
+/* 지원청 구역 색. 강조색과 싸우지 않도록 채도를 낮춰 잡았다. */
+var DISTRICT_COLORS = {
+    '동부': '#D4694A', '서부': '#6E8F7A', '남부': '#8A7CA8',
+    '달성': '#C9A25B', '군위': '#7A8B9E'
+};
+
+/* ── 마커 아이콘 ───────────────────────────────────────────────
+   HTML(content) 마커는 마커마다 DOM이 생겨서 수백 개가 깔리면 확대/축소 때
+   재배치 비용이 커진다. 이미지 아이콘은 1개 노드로 끝나므로 SVG를 주소로 만들어 쓴다. */
+/* 머리를 크게, 꼬리를 짧게 잡아 뭉툭하고 둥근 물방울을 만든다.
+   반지름 15.5 원의 중심 (18,18)에서 끝점 (18,40.5)로 접선을 그은 모양이라,
+   머리와 전체 높이의 비가 0.83으로 시안의 둥근 핀과 같다.
+   (꼬리를 길게 빼면 뾰족하고 날카로워 보인다) */
+var PIN_W = 36, PIN_H = 44, PIN_TIP = 42;
+var PIN_PATH = 'M6.76 28.68A15.5 15.5 0 1 1 29.24 28.68L18 40.5Z';
+var pinCache = {};
+
+function pinUrl(grade, count, selected) {
+    var key = (grade || '-') + '|' + count + '|' + (selected ? 's' : 'n');
+    if (pinCache[key]) return pinCache[key];
+
+    var t = toneFor(grade);
+    var svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="' + PIN_W + '" height="' + PIN_H + '" viewBox="0 0 36 44">' +
+        '<path d="' + PIN_PATH + '" fill="' + t.b + '" ' +
+            'stroke="' + (selected ? '#1A1A17' : '#ffffff') + '" ' +
+            'stroke-width="' + (selected ? 3 : 2.6) + '" stroke-linejoin="round"/>' +
+        '<text x="18" y="22.6" text-anchor="middle" font-family="sans-serif" ' +
+            'font-size="13.5" font-weight="700" fill="' + t.f + '">' + count + '</text>' +
+        '</svg>';
+
+    pinCache[key] = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+    return pinCache[key];
+}
+
+function pinIcon(grade, count, selected) {
+    var scale = selected ? 1.25 : 1;
+    var w = Math.round(PIN_W * scale), h = Math.round(PIN_H * scale);
+    return {
+        url: pinUrl(grade, count, selected),
+        size: new naver.maps.Size(w, h),
+        scaledSize: new naver.maps.Size(w, h),
+        // 좌표를 가리키는 것은 그림의 아래 끝이 아니라 꼬리 끝점이다.
+        anchor: new naver.maps.Point(Math.round(w / 2), Math.round(PIN_TIP * scale))
+    };
+}
+
+/* ── 지원청 경계선 ────────────────────────────────────────────── */
+var boundaryPolygons = [];
+var boundaryOn = false;
 var mapUrl = "https://raw.githubusercontent.com/southkorea/southkorea-maps/master/kostat/2013/json/skorea_municipalities_geo.json";
+
+var GU_TO_DISTRICT = {
+    '중구': '동부', '동구': '동부', '수성구': '동부',
+    '서구': '서부', '북구': '서부',
+    '남구': '남부', '달서구': '남부',
+    '달성군': '달성', '군위군': '군위'
+};
 
 fetch(mapUrl)
     .then(function(response) {
@@ -15,104 +93,69 @@ fetch(mapUrl)
         return response.json();
     })
     .then(function(geojson) {
-        console.log("✅ 전국 지도 다운로드 완료!");
-
         var daeguFeatures = geojson.features.filter(function(f) {
             var code = f.properties.code || "";
             var name = f.properties.name || "";
             return code.startsWith('22') || name === '군위군';
         });
 
-        console.log("🎯 대구/군위군 구역 " + daeguFeatures.length + "개 추출 완료!");
-
         daeguFeatures.forEach(function(feature) {
             var guName = feature.properties.name;
-            
-            var color = '#cccccc';
-            if (['중구', '동구', '수성구'].includes(guName)) color = '#3498DB';
-            else if (['서구', '북구'].includes(guName)) color = '#2ECC71';
-            else if (['남구', '달서구'].includes(guName)) color = '#F1C40F';
-            else if (['달성군'].includes(guName)) color = '#E74C3C';
-            else if (['군위군'].includes(guName)) color = '#9B59B6';
-
-            var geomType = feature.geometry.type;
+            var color = DISTRICT_COLORS[GU_TO_DISTRICT[guName]] || '#9E9E96';
             var coords = feature.geometry.coordinates;
 
             function drawSinglePolygon(coordinateArray) {
                 var path = coordinateArray.map(function(coord) {
                     return new naver.maps.LatLng(coord[1], coord[0]);
                 });
-
-                var isChecked = document.getElementById('toggle-boundary').checked;
-
-                var polygon = new naver.maps.Polygon({
-                    map: isChecked ? map : null, 
-                    paths: [path], 
-                    fillColor: color,
-                    fillOpacity: 0.15,
-                    strokeColor: color,
-                    strokeOpacity: 0.8,
-                    strokeWeight: 2
-                });
-
-                boundaryPolygons.push(polygon);
+                boundaryPolygons.push(new naver.maps.Polygon({
+                    map: boundaryOn ? map : null,
+                    paths: [path],
+                    fillColor: color, fillOpacity: 0.13,
+                    strokeColor: color, strokeOpacity: 0.75, strokeWeight: 2
+                }));
             }
 
-            if (geomType === 'Polygon') {
+            if (feature.geometry.type === 'Polygon') {
                 drawSinglePolygon(coords[0]);
-            } else if (geomType === 'MultiPolygon') {
-                coords.forEach(function(polygon) {
-                    drawSinglePolygon(polygon[0]);
-                });
+            } else if (feature.geometry.type === 'MultiPolygon') {
+                coords.forEach(function(polygon) { drawSinglePolygon(polygon[0]); });
             }
         });
-        
-        console.log("🎉 대구 행정구역 경계선 그리기 대성공!");
     })
     .catch(function(error) {
-        console.error("❌ 에러 발생:", error);
+        console.error("경계선을 불러오지 못했습니다:", error);
     });
 
 function toggleBoundaries() {
-    var isChecked = document.getElementById('toggle-boundary').checked;
-    console.log("체크박스 상태:", isChecked, " / 다각형 개수:", boundaryPolygons.length);
-    
-    for (var i = 0; i < boundaryPolygons.length; i++) {
-        if (isChecked) {
-            boundaryPolygons[i].setMap(map); 
-        } else {
-            boundaryPolygons[i].setMap(null); 
-        }
-    }
+    boundaryOn = !boundaryOn;
+    document.getElementById('boundaryPill').classList.toggle('on', boundaryOn);
+    boundaryPolygons.forEach(function(p) { p.setMap(boundaryOn ? map : null); });
 }
 
+/* ── 학교 데이터 ──────────────────────────────────────────────── */
 var schoolDataMap = {};
 var allEntries = [];
 var visibleEntries = [];
 var clusterMarkers = [];
+var selectedEntry = null;
 
 var ZOOM_DISTRICT = 11;
 var ZOOM_SCHOOL = 13;
 
-var DISTRICT_COLORS = {
-    '동부': '#3498DB',
-    '서부': '#2ECC71',
-    '남부': '#F1C40F',
-    '달성': '#E74C3C',
-    '군위': '#9B59B6'
-};
+function has(v) {
+    return v !== null && v !== undefined && String(v).trim() !== '' && String(v) !== '-';
+}
 
 function createClusterMarker(position, label, count, color, sizePx, zoomTo) {
     var marker = new naver.maps.Marker({
         position: position,
         map: map,
         icon: {
-            content: '<div class="marker-fade" style="cursor:pointer;width:' + sizePx + 'px;height:' + sizePx + 'px;border-radius:50%;background:' + color +
-                     ';color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-                     'font-family:sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.35);border:3px solid #fff;">' +
-                     '<div style="font-size:12px;font-weight:bold;line-height:1.1;">' + label + '</div>' +
-                     '<div style="font-size:15px;font-weight:bold;line-height:1.2;">' + count + '</div>' +
-                     '</div>',
+            content: '<div class="cluster marker-fade" style="width:' + sizePx + 'px;height:' + sizePx +
+                     'px;background:' + color + '">' +
+                     '<div class="cl-name">' + label + '</div>' +
+                     '<div class="cl-num">' + count + '</div></div>',
             size: new naver.maps.Size(sizePx, sizePx),
             anchor: new naver.maps.Point(sizePx / 2, sizePx / 2)
         },
@@ -131,8 +174,7 @@ function groupCenter(entries) {
     var sumLat = 0, sumLng = 0;
     entries.forEach(function(e) {
         var pos = e.marker.getPosition();
-        sumLat += pos.lat();
-        sumLng += pos.lng();
+        sumLat += pos.lat(); sumLng += pos.lng();
     });
     return new naver.maps.LatLng(sumLat / entries.length, sumLng / entries.length);
 }
@@ -146,7 +188,7 @@ function currentLevel() {
 
 // 같은 단계 안에서 줌만 움직일 때는 다시 그리지 않는다. (마커 수백 개를 지웠다 붙이면 깜빡인다)
 var renderedLevel = null;
-var shownSchools = [];  // 지금 지도에 올라가 있는 학교들
+var shownSchools = [];
 
 // 화면 밖 마커까지 지도에 올려두면, 네이버가 확대/축소 매 프레임마다 그 위치를 전부
 // 다시 계산하느라 지도 전체가 버벅인다. 보이는 영역(+여유분)만 올린다.
@@ -169,12 +211,8 @@ function syncSchoolMarkers() {
     var nextSet = new Set(next);
     var prevSet = new Set(shownSchools);
 
-    shownSchools.forEach(function(e) {
-        if (!nextSet.has(e)) e.marker.setMap(null);
-    });
-    next.forEach(function(e) {
-        if (!prevSet.has(e)) e.marker.setMap(map);
-    });
+    shownSchools.forEach(function(e) { if (!nextSet.has(e)) e.marker.setMap(null); });
+    next.forEach(function(e) { if (!prevSet.has(e)) e.marker.setMap(map); });
 
     shownSchools = next;
     lastSync = { lat: map.getCenter().lat(), lng: map.getCenter().lng(), zoom: map.getZoom() };
@@ -186,7 +224,6 @@ var lastSync = null;
 
 function needsSync() {
     if (!lastSync || lastSync.zoom !== map.getZoom()) return true;
-
     var b = map.getBounds(), sw = b.getSW(), ne = b.getNE();
     var c = map.getCenter();
     return Math.abs(c.lat() - lastSync.lat) > (ne.lat() - sw.lat()) * 0.12 ||
@@ -219,8 +256,6 @@ function renderMarkers(force) {
     var level = currentLevel();
     var levelChanged = level !== renderedLevel;
 
-    // 학교 단계에서는 이동·확대로 보이는 범위가 계속 바뀌므로 맞춰준다.
-    // 단계가 바뀌거나 필터가 바뀐 때는 바로, 단순 이동은 미뤄서 처리한다.
     if (level === 'school') {
         if (levelChanged) {
             clusterMarkers.forEach(function(m) { m.setMap(null); });
@@ -242,8 +277,6 @@ function renderMarkers(force) {
 
     if (visibleEntries.length === 0) return;
 
-    allEntries.forEach(function(e) { e.infoWindow.close(); });
-
     if (level === 'district') {
         var groups = {};
         visibleEntries.forEach(function(e) {
@@ -252,66 +285,25 @@ function renderMarkers(force) {
         });
         Object.keys(groups).forEach(function(d) {
             var members = groups[d];
-            createClusterMarker(groupCenter(members), d, members.length, DISTRICT_COLORS[d] || '#7F8C8D', 62, ZOOM_SCHOOL);
+            createClusterMarker(groupCenter(members), d, members.length,
+                                DISTRICT_COLORS[d] || '#9E9E96', 62, ZOOM_SCHOOL);
         });
     } else {
-        createClusterMarker(groupCenter(visibleEntries), '대구', visibleEntries.length, '#2C3E50', 84, ZOOM_DISTRICT);
+        createClusterMarker(groupCenter(visibleEntries), '대구', visibleEntries.length,
+                            '#8A4A12', 84, ZOOM_DISTRICT);
     }
 }
 
 // zoom_changed는 확대/축소 애니메이션 '도중에' 발생해서, 그때 마커를 갈아끼우면 화면이 튄다.
 // idle은 지도 움직임이 완전히 끝난 뒤에 한 번만 발생하므로 교체가 자연스럽다.
 naver.maps.Event.addListener(map, 'idle', function() { renderMarkers(); });
+naver.maps.Event.addListener(map, 'click', function() { closePanels(); closeSheet(); });
 
-function getSchoolIcon(grade) {
-    var mainColor = "#BDC3C7"; 
-    var roofColor = "#7F8C8D"; 
-    var flagColor = "#95A5A6"; 
-
-    if (grade === "가") {
-        mainColor = "#5DADE2"; 
-        roofColor = "#2874A6"; 
-        flagColor = "#3498DB"; 
-    } else if (grade === "나") {
-        mainColor = "#58D68D"; 
-        roofColor = "#1D8348"; 
-        flagColor = "#2ECC71"; 
-    } else if (grade === "다") {
-        mainColor = "#F4D03F"; 
-        roofColor = "#D4AC0D"; 
-        flagColor = "#F1C40F"; 
-    } else if (grade === "라") {
-        mainColor = "#F1948A"; 
-        roofColor = "#B03A2E"; 
-        flagColor = "#E74C3C"; 
-    }
-
-    var svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="40" height="40">` +
-        `<rect x="12" y="28" width="40" height="32" fill="${mainColor}" rx="4" />` +
-        `<polygon points="32,12 6,28 58,28" fill="${roofColor}" />` +
-        `<path d="M26,60 L26,48 A6,6 0 0,1 38,48 L38,60 Z" fill="#8E44AD" />` +
-        `<rect x="18" y="36" width="8" height="8" fill="#FFFFFF" rx="1" />` +
-        `<rect x="38" y="36" width="8" height="8" fill="#FFFFFF" rx="1" />` +
-        `<line x1="32" y1="12" x2="32" y2="4" stroke="#7F8C8D" stroke-width="2" />` +
-        `<rect x="32" y="4" width="10" height="6" fill="${flagColor}" />` +
-        `</svg>`;
-
-    return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
-}
-
-// 급지는 5종뿐이라 아이콘 주소를 한 번만 만들어 재사용한다.
-var schoolIconCache = {};
-function getSchoolIconUrl(grade) {
-    var key = grade || '-';
-    if (!schoolIconCache[key]) schoolIconCache[key] = getSchoolIcon(grade);
-    return schoolIconCache[key];
-}
-
-// ── 네이버 길찾기 연결 ──────────────────────────────────────────
-// 소요시간을 직접 계산하지 않고 출발지·도착지 좌표만 네이버에 넘긴다. (API 키·요금 없음)
-// 모바일 앱 스킴(nmap://)은 네이버 공식 문서에 명시된 방식이지만,
-// PC 웹 주소는 네이버가 "공식 지원하지 않는다"고 답변한 비공식 형식이라 언젠가 바뀔 수 있다.
-// 그때 이 두 함수만 고치면 되도록 여기에 모아둔다.
+/* ── 네이버 길찾기 연결 ────────────────────────────────────────
+   소요시간을 직접 계산하지 않고 출발지·도착지 좌표만 네이버에 넘긴다. (API 키·요금 없음)
+   모바일 앱 스킴(nmap://)은 네이버 공식 문서에 명시된 방식이지만,
+   PC 웹 주소는 네이버가 "공식 지원하지 않는다"고 답변한 비공식 형식이라 언젠가 바뀔 수 있다.
+   그때 이 두 함수만 고치면 되도록 여기에 모아둔다. */
 var NAVER_APP_NAME = 'schoolmap.web';
 var homePosition = null;  // 나중에 '우리집 위치' 기능이 붙으면 {lat, lng}가 들어간다.
 
@@ -325,8 +317,6 @@ function buildNaverAppUrl(mode, lat, lng, name) {
 }
 
 function buildNaverWebUrl(lat, lng, name) {
-    // 웹에서는 이동수단 지정 방식이 공식 문서에 없어서, 출발지·도착지만 넘기고
-    // 대중교통/자동차 선택은 네이버 화면에 맡긴다.
     var params = 'elng=' + lng + '&elat=' + lat + '&etext=' + encodeURIComponent(name) + '&menu=route';
     if (homePosition) {
         params = 'slng=' + homePosition.lng + '&slat=' + homePosition.lat +
@@ -353,13 +343,181 @@ function openNaverRoute(mode, lat, lng, name) {
     window.location.href = buildNaverAppUrl(mode, lat, lng, name);
 }
 
-function jsQuote(text) {
-    return String(text).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+/* ── 안내 문구 ────────────────────────────────────────────────── */
+var toastTimer = null;
+function toast(msg) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function() { el.classList.remove('show'); }, 2400);
 }
 
-// 배포(Vercel)에서는 templates/index.html이 루트로 서빙되어 ../data 상대경로가 어긋난다.
-// GitHub raw 절대주소를 쓰면 배포와 로컬 양쪽에서 같은 파일을 바라본다.
-// 데이터를 수정했을 때는 GitHub에도 올려야 배포본에 반영된다.
+/* ── 시트 ─────────────────────────────────────────────────────
+   단계를 두지 않는다. 열면 크게 열리고 닫는 것만 있다.
+   끌기는 손잡이·제목에서만 받고, 내용 영역은 브라우저에 맡겨야 스크롤이 부드럽다. */
+var sheet = document.getElementById('sheet');
+var scrim = document.getElementById('scrim');
+var sheetScroll = sheet.querySelector('.sheet-scroll');
+var sheetTop = sheet.querySelector('.sheet-top');
+var sheetOpen = false, dragY = 0, sheetH = 0;
+
+function isWide() { return window.matchMedia('(min-width: 880px)').matches; }
+function measureSheet() { sheetH = sheet.offsetHeight; }
+measureSheet();
+
+function settleSheet(open, animate) {
+    sheetOpen = open;
+    sheet.classList.toggle('animate', animate !== false);
+    if (isWide()) {
+        sheet.style.transform = open ? 'translateX(0)' : 'translateX(calc(-100% - 32px))';
+    } else {
+        // 닫은 위치를 픽셀로 굳히면 안 된다. 폰에서 주소창이 숨겨지면 화면이 커지고
+        // 시트도 함께 커지는데 내려둔 거리는 그대로라 아래에 띠가 남는다.
+        sheet.style.transform = open ? 'translateY(0)' : 'translateY(100%)';
+        dragY = open ? 0 : sheet.offsetHeight;
+    }
+    scrim.classList.toggle('show', open);
+    sheet.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (!open) sheetScroll.scrollTop = 0;
+}
+
+window.addEventListener('resize', function() { measureSheet(); settleSheet(sheetOpen, false); });
+
+function openSheet() {
+    measureSheet();
+    if (!sheetOpen) {
+        // 닫힌 자리에서 출발해야 올라오는 것처럼 보인다. 애니메이션 없이 먼저 세워둔다.
+        sheet.classList.remove('animate');
+        sheet.style.transform = 'translateY(100%)';
+        void sheet.offsetHeight;
+    }
+    // 다음 프레임에 열어야 시작 위치가 반영된 뒤 애니메이션이 걸린다.
+    // 다만 화면이 안 그려지는 상황에서는 프레임이 오지 않으므로 시간으로도 한 번 더 건다.
+    var fired = false;
+    var go = function() {
+        if (fired) return;
+        fired = true;
+        settleSheet(true, true);
+    };
+    requestAnimationFrame(go);
+    setTimeout(go, 60);
+}
+
+function closeSheet() {
+    settleSheet(false, true);
+    if (selectedEntry) {
+        var e = selectedEntry;
+        selectedEntry = null;
+        e.marker.setIcon(pinIcon(e.rawData['grade_class'], e.rawData['class_total'], false));
+        e.marker.setZIndex(50);
+    }
+}
+
+document.getElementById('closeBtn').addEventListener('click', closeSheet);
+scrim.addEventListener('click', closeSheet);
+
+/* 끌어서 닫기 */
+var drag = null;
+
+sheetTop.addEventListener('pointerdown', function(e) {
+    if (isWide() || e.target.closest('#closeBtn')) return;
+    drag = { y0: e.clientY, last: e.clientY, t: e.timeStamp, v: 0, moved: false };
+    sheet.classList.remove('animate');
+    sheetTop.setPointerCapture(e.pointerId);
+});
+
+sheetTop.addEventListener('pointermove', function(e) {
+    if (!drag) return;
+    var dy = e.clientY - drag.y0;
+    if (Math.abs(dy) > 3) drag.moved = true;
+
+    var dt = e.timeStamp - drag.t;
+    if (dt > 0) { drag.v = (e.clientY - drag.last) / dt; drag.last = e.clientY; drag.t = e.timeStamp; }
+
+    dragY = dy < 0 ? dy * 0.22 : dy;   // 위로는 저항을 걸어 끝을 알린다
+    sheet.style.transform = 'translateY(' + dragY + 'px)';
+    e.preventDefault();
+});
+
+function endDrag() {
+    if (!drag) return;
+    var v = drag.v, moved = drag.moved;
+    drag = null;
+    if (!moved) return;
+    if (dragY > sheetH * 0.28 || v > 0.5) closeSheet();
+    else settleSheet(true, true);
+}
+sheetTop.addEventListener('pointerup', endDrag);
+sheetTop.addEventListener('pointercancel', endDrag);
+
+/* ── 시트 내용 ────────────────────────────────────────────────── */
+function fillSheet(entry) {
+    var s = entry.rawData;
+    var name = String(s['school_name']);
+
+    document.getElementById('sName').textContent = name.replace(/\((국립|사립)\)/, '');
+    document.getElementById('sAddr').textContent = String(s['address'] || '').trim();
+
+    var badges = [];
+    if (has(s['district'])) badges.push({ t: s['district'] + '교육지원청', c: '' });
+    if (has(s['grade_class'])) badges.push({ t: s['grade_class'] + '급지', c: 'key' });
+    if (name.indexOf('(국립)') > -1) badges.push({ t: '국립', c: '' });
+    if (name.indexOf('(사립)') > -1) badges.push({ t: '사립', c: '' });
+    if (has(s['research_topic'])) badges.push({ t: '연구학교', c: 'warm' });
+    if (has(s['ib_stage'])) badges.push({ t: 'IB ' + String(s['ib_stage']).trim() + '학교', c: 'warm' });
+    if (has(s['future_total_years']) || has(s['future_year'])) badges.push({ t: '미래학교', c: 'warm' });
+
+    document.getElementById('sBadges').innerHTML = badges.map(function(b) {
+        return '<span class="badge ' + b.c + '">' + b.t + '</span>';
+    }).join('');
+
+    var total = s['class_total'], reg = s['class_regular'], sp = s['class_special'];
+    document.getElementById('sStats').innerHTML =
+        '<div class="stat"><div class="k">총 학급</div><div class="v">' + total + '<u>학급</u></div></div>' +
+        '<div class="stat"><div class="k">일반 / 특수</div><div class="v">' + reg + '<u> / </u>' + sp + '</div></div>' +
+        '<div class="stat"><div class="k">급지</div><div class="v">' + (has(s['grade_class']) ? s['grade_class'] : '—') + '</div></div>';
+
+    function row(k, on, v) {
+        return '<div class="row"><div class="k">' + k + '</div>' +
+               '<div class="v' + (on ? '' : ' off') + '">' + (on ? v : '해당 없음') + '</div></div>';
+    }
+
+    var researchVal = s['research_topic'] +
+        (has(s['research_year']) ? '<small>' + s['research_year'] + '/' + s['research_total_years'] + '년차</small>' : '');
+    var futureVal = has(s['future_year'])
+        ? s['future_year'] + '/' + s['future_total_years'] + '년차'
+        : String(s['future_total_years']).trim() + '년';
+
+    document.getElementById('sRows').innerHTML =
+        row('연구학교', has(s['research_topic']), researchVal) +
+        row('IB학교', has(s['ib_stage']), String(s['ib_stage']).trim() + '학교') +
+        row('미래학교', has(s['future_total_years']) || has(s['future_year']), futureVal);
+
+    var lat = s['latitude'], lng = s['longitude'];
+    document.getElementById('routeCar').onclick = function() { openNaverRoute('car', lat, lng, name); };
+    document.getElementById('routeBus').onclick = function() { openNaverRoute('public', lat, lng, name); };
+}
+
+function selectSchool(entry) {
+    if (selectedEntry && selectedEntry !== entry) {
+        var p = selectedEntry;
+        p.marker.setIcon(pinIcon(p.rawData['grade_class'], p.rawData['class_total'], false));
+        p.marker.setZIndex(50);
+    }
+    selectedEntry = entry;
+    entry.marker.setIcon(pinIcon(entry.rawData['grade_class'], entry.rawData['class_total'], true));
+    entry.marker.setZIndex(200);
+
+    closePanels();
+    fillSheet(entry);
+    openSheet();
+}
+
+/* ── 데이터 불러오기 ───────────────────────────────────────────
+   배포(Vercel)에서는 templates/index.html이 루트로 서빙되어 ../data 상대경로가 어긋난다.
+   GitHub raw 절대주소를 쓰면 배포와 로컬 양쪽에서 같은 파일을 바라본다.
+   데이터를 수정했을 때는 GitHub에도 올려야 배포본에 반영된다. */
 var csvUrl = "https://raw.githubusercontent.com/1-Ryu/daegu-school-map/refs/heads/main/data/%EB%8C%80%EA%B5%AC%EC%B4%88%EB%93%B1%ED%95%99%EA%B5%90_%EB%8D%B0%EC%9D%B4%ED%84%B0_%EC%A2%8C%ED%91%9C%EC%99%84%EB%A3%8C.csv";
 
 Papa.parse(csvUrl, {
@@ -367,257 +525,269 @@ Papa.parse(csvUrl, {
     header: true,
     dynamicTyping: true,
     complete: function(results) {
-        var data = results.data;
-
-        data.forEach(function(school) {
-            var lat = school['latitude']; 
+        results.data.forEach(function(school) {
+            var lat = school['latitude'];
             var lng = school['longitude'];
-            var name = school['school_name']; 
-            
-            if (lat && lng && name) {
-                var marker = new naver.maps.Marker({
-                    position: new naver.maps.LatLng(lat, lng),
-                    map: null,
-                    // HTML(content) 마커는 SVG 자식 8개짜리 DOM이 마커마다 생겨서,
-                    // 수백 개가 깔리면 확대/축소 때 재배치 비용이 커진다. 이미지 아이콘은 1개 노드로 끝난다.
-                    icon: {
-                        url: getSchoolIconUrl(school['grade_class']),
-                        size: new naver.maps.Size(40, 40),
-                        scaledSize: new naver.maps.Size(40, 40),
-                        anchor: new naver.maps.Point(20, 40)
-                    }
-                });
+            var name = school['school_name'];
+            if (!lat || !lng || !name) return;
 
-                var hasResearch = school['research_topic'] !== null && school['research_topic'] !== undefined && String(school['research_topic']).trim() !== "" && String(school['research_topic']) !== "-";
-                var researchText = hasResearch ? `${school['research_topic']} <span style="font-size:11px; color:#E74C3C;">(${school['research_year']}/${school['research_total_years']}년차)</span>` : "-";
+            var marker = new naver.maps.Marker({
+                position: new naver.maps.LatLng(lat, lng),
+                map: null,
+                icon: pinIcon(school['grade_class'], school['class_total'], false),
+                zIndex: 50
+            });
 
-                var hasIB = school['ib_stage'] !== null && school['ib_stage'] !== undefined && String(school['ib_stage']).trim() !== "" && String(school['ib_stage']) !== "-";
-                var ibText = hasIB ? school['ib_stage'] : "-";
+            var entry = { marker: marker, rawData: school };
+            schoolDataMap[name] = entry;
+            allEntries.push(entry);
 
-                var hasFuture = (school['future_total_years'] !== null && school['future_total_years'] !== undefined && String(school['future_total_years']).trim() !== "" && String(school['future_total_years']) !== "-") ||
-                                (school['future_year'] !== null && school['future_year'] !== undefined && String(school['future_year']).trim() !== "" && String(school['future_year']) !== "-");
-                var futureText = hasFuture ? `${school['future_year']}/${school['future_total_years']}년차` : "-";
-
-                var dist = school['district'] || '-';
-                var gr = school['grade_class'] ? school['grade_class'] + '급지' : '-';
-
-                var infoWindow = new naver.maps.InfoWindow({
-                    content: `
-                        <div class="iw-body" style="width:280px; padding:15px; border-radius:8px; font-family:sans-serif;">
-                            <h3 style="margin:0 0 5px 0; color:#2C3E50; font-size:16px;">${name}</h3>
-                            <p style="margin:0 0 12px 0; font-size:12px; color:#7F8C8D;">${school['address'] || ''}</p>
-                            
-                            <table style="width: 100%; font-size: 13px; border-collapse: collapse; text-align: left;">
-                                <tr style="border-bottom: 1px solid #eee;">
-                                    <th style="padding: 5px 0; color:#34495E; width: 35%;">교육지원청/급지</th>
-                                    <td style="padding: 5px 0; color:#2980B9; font-weight:bold;">${dist} / ${gr}</td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid #eee;">
-                                    <th style="padding: 5px 0; color:#34495E;">학급수</th>
-                                    <td style="padding: 5px 0;">총 ${school['class_total']}학급 <span style="font-size:11px; color:#7F8C8D;">(일반 ${school['class_regular']} / 특수 ${school['class_special']})</span></td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid #eee;">
-                                    <th style="padding: 5px 0; color:#34495E;">연구학교</th>
-                                    <td style="padding: 5px 0;">${researchText}</td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid #eee;">
-                                    <th style="padding: 5px 0; color:#34495E;">IB학교</th>
-                                    <td style="padding: 5px 0;">${ibText}</td>
-                                </tr>
-                                <tr>
-                                    <th style="padding: 5px 0; color:#34495E;">미래학교</th>
-                                    <td style="padding: 5px 0;">${futureText}</td>
-                                </tr>
-                            </table>
-
-                            <div style="margin-top:12px; padding-top:10px; border-top:1px solid #E5E8E8;">
-                                <div style="font-size:11px; color:#95A5A6; margin-bottom:6px;">여기까지 길찾기</div>
-                                <div style="display:flex; gap:6px;">
-                                    <button onclick="openNaverRoute('car', ${lat}, ${lng}, '${jsQuote(name)}')"
-                                        style="flex:1; height:32px; background:#EAF2F8; color:#2980B9; border:1px solid #AED6F1; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">🚗 자동차</button>
-                                    <button onclick="openNaverRoute('public', ${lat}, ${lng}, '${jsQuote(name)}')"
-                                        style="flex:1; height:32px; background:#EAF2F8; color:#2980B9; border:1px solid #AED6F1; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">🚌 대중교통</button>
-                                </div>
-                                <div style="font-size:10px; color:#B2BABB; margin-top:5px;">네이버 지도에서 열립니다</div>
-                            </div>
-                        </div>
-                    `,
-                    backgroundColor: "white",
-                    borderColor: "#3498DB",
-                    borderWidth: 2,
-                    anchorSkew: true
-                });
-
-                var entry = {
-                    marker: marker,
-                    infoWindow: infoWindow,
-                    rawData: school
-                };
-                schoolDataMap[name] = entry;
-                allEntries.push(entry);
-
-                naver.maps.Event.addListener(marker, "click", function(e) {
-                    if (infoWindow.getMap()) {
-                        infoWindow.close();
-                    } else {
-                        infoWindow.open(map, marker);
-                    }
-                });
-            }
+            naver.maps.Event.addListener(marker, 'click', function() {
+                if (selectedEntry === entry && sheetOpen) closeSheet();
+                else selectSchool(entry);
+            });
         });
 
         visibleEntries = allEntries.slice();
         renderMarkers(true);
     },
-    error: function(err) {
-        alert("데이터 파일을 불러올 수 없습니다.");
+    error: function() {
+        toast('학교 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
     }
 });
 
-function updateClassCountDisplay() {
-    var val = document.getElementById("filter-class-count").value;
-    document.getElementById("class-count-display").innerText = val;
+/* ── 상단 검색 ────────────────────────────────────────────────── */
+var searchInput = document.getElementById('searchInput');
+var searchField = document.getElementById('searchfield');
+var searchList = document.getElementById('searchlist');
+var filterPanel = document.getElementById('filterpanel');
+
+function closePanels() {
+    searchList.classList.remove('show');
+    filterPanel.classList.remove('show');
+    document.getElementById('filterBtn').classList.remove('on');
 }
 
-function searchSchool() {
-    var keyword = document.getElementById("searchInput").value.trim();
-    if (!keyword) {
-        alert("검색할 학교 이름을 입력해주세요.");
-        return;
-    }
+function renderSearchList(q) {
+    var hits = allEntries.filter(function(e) {
+        return !q || String(e.rawData['school_name']).indexOf(q) > -1;
+    }).slice(0, 40);
 
-    var found = false;
-    
-    for (var schoolName in schoolDataMap) {
-        if (schoolName.includes(keyword)) {
-            var target = schoolDataMap[schoolName];
-            map.setCenter(target.marker.getPosition());
-            map.setZoom(15);
-            // 마커 교체는 미뤄서 처리되므로, 검색은 팝업을 열기 전에 즉시 갱신해준다.
-            renderMarkers(true);
-            target.infoWindow.open(map, target.marker);
-            found = true;
-            break;
-        }
-    }
+    searchList.innerHTML = hits.length === 0
+        ? '<div class="empty">일치하는 학교가 없습니다</div>'
+        : hits.map(function(e) {
+              var s = e.rawData;
+              return '<button data-name="' + String(s['school_name']).replace(/"/g, '&quot;') + '">' +
+                     '<i style="background:' + toneFor(s['grade_class']).b + '"></i>' +
+                     String(s['school_name']).replace(/\((국립|사립)\)/, '') +
+                     '<em>' + s['class_total'] + '학급</em></button>';
+          }).join('');
 
-    if (!found) {
-        alert("'" + keyword + "' 학교를 찾을 수 없습니다.");
-    }
+    filterPanel.classList.remove('show');
+    document.getElementById('filterBtn').classList.remove('on');
+    searchList.classList.add('show');
 }
 
-function toggleFilterPanel() {
-    var filterBox = document.getElementById('filter-box');
-    var btn = document.getElementById('toggleFilterBtn');
-    
-    if (filterBox.style.display === 'none') {
-        filterBox.style.display = 'flex'; 
-        btn.innerText = '▲ 세부검색';
-        btn.style.background = '#7F8C8D'; 
-    } else {
-        filterBox.style.display = 'none'; 
-        btn.innerText = '▼ 세부검색';
-        btn.style.background = '#2ECC71'; 
-    }
-}
+searchInput.addEventListener('focus', function() { renderSearchList(searchInput.value.trim()); });
+searchInput.addEventListener('input', function() {
+    searchField.classList.toggle('filled', searchInput.value.length > 0);
+    renderSearchList(searchInput.value.trim());
+});
+document.getElementById('searchClear').addEventListener('click', function() {
+    searchInput.value = '';
+    searchField.classList.remove('filled');
+    closePanels();
+});
 
-function applyFilters() {
-    var f_dist = document.getElementById("filter-district").value;
-    
-    var gradeCheckboxes = document.querySelectorAll('#filter-grade input[type="checkbox"]');
-    var selectedGrades = [];
-    gradeCheckboxes.forEach(function(cb) {
-        if (cb.checked) selectedGrades.push(cb.value);
+searchList.addEventListener('click', function(e) {
+    var btn = e.target.closest('button[data-name]');
+    if (!btn) return;
+    var entry = schoolDataMap[btn.dataset.name];
+    if (!entry) return;
+
+    closePanels();
+    searchInput.blur();
+
+    map.setCenter(entry.marker.getPosition());
+    map.setZoom(15);
+    // 마커 교체는 미뤄서 처리되므로, 검색은 시트를 열기 전에 즉시 갱신해준다.
+    renderMarkers(true);
+    selectSchool(entry);
+});
+
+document.addEventListener('pointerdown', function(e) {
+    if (!e.target.closest('#topbar')) closePanels();
+}, true);
+
+/* ── 필터 ─────────────────────────────────────────────────────── */
+var DEFAULTS = {
+    district: '전체',
+    grades: ['가', '나', '다', '라'],
+    minClass: 1,
+    research: '미설정',
+    ib: '미설정',
+    future: '미설정',
+    mode: 'and'
+};
+var filters = JSON.parse(JSON.stringify(DEFAULTS));
+
+var CHIP_SETS = {
+    fDistrict: { key: 'district', multi: false, items: ['전체', '동부', '서부', '남부', '달성', '군위'] },
+    fResearch: { key: 'research', multi: false, items: ['미설정', '지정교', '미지정교'] },
+    fIb:       { key: 'ib',       multi: false, items: ['미설정', '지정교', '관심', '후보', '월드', '미지정교'] },
+    fFuture:   { key: 'future',   multi: false, items: ['미설정', '지정교', '미지정교'] },
+    fMode:     { key: 'mode',     multi: false, items: [['and', '모두 만족'], ['or', '하나라도']] }
+};
+
+function renderChips() {
+    Object.keys(CHIP_SETS).forEach(function(id) {
+        var set = CHIP_SETS[id];
+        document.getElementById(id).innerHTML = set.items.map(function(it) {
+            var val = Array.isArray(it) ? it[0] : it;
+            var label = Array.isArray(it) ? it[1] : it;
+            var on = filters[set.key] === val;
+            return '<button class="fchip' + (on ? ' on' : '') + '" data-set="' + id + '" data-val="' + val + '">' + label + '</button>';
+        }).join('');
     });
 
-    var f_research = document.getElementById("filter-research").value;
-    var f_ib = document.getElementById("filter-ib").value;
-    var f_future = document.getElementById("filter-future").value;
-    
-    var filterMode = document.querySelector('input[name="filter-mode"]:checked').value;
-    var minClassCount = parseInt(document.getElementById("filter-class-count").value, 10);
-    var matched = [];
+    // 급지 칩은 색 견본을 함께 보여준다. 이것이 곧 마커 색의 범례다.
+    document.getElementById('fGrade').innerHTML = GRADES.map(function(g) {
+        var on = filters.grades.indexOf(g) > -1;
+        return '<button class="fchip grade' + (on ? ' on' : '') + '" data-grade="' + g + '">' +
+               '<i class="sw" style="background:' + toneFor(g).b + '"></i>' + g + '급지</button>';
+    }).join('');
+}
 
-    for (var schoolName in schoolDataMap) {
-        var target = schoolDataMap[schoolName];
-        var data = target.rawData;
-        var isMatch = true;
+function activeFilterCount() {
+    var n = 0;
+    if (filters.district !== DEFAULTS.district) n++;
+    if (filters.grades.length !== 4) n++;
+    if (filters.minClass > 1) n++;
+    if (filters.research !== '미설정') n++;
+    if (filters.ib !== '미설정') n++;
+    if (filters.future !== '미설정') n++;
+    return n;
+}
 
-        if (f_dist !== "전체" && data['district'] !== f_dist) isMatch = false;
-        if (data['grade_class'] && !selectedGrades.includes(data['grade_class'])) isMatch = false;
-        
-        var schoolClassTotal = parseInt(data['class_total'], 10);
-        if (!isNaN(schoolClassTotal) && schoolClassTotal < minClassCount) {
-            isMatch = false;
-        }
+function updateFilterBadge() {
+    var n = activeFilterCount();
+    document.getElementById('filterCount').textContent = n;
+    document.getElementById('filterCount').style.display = n === 0 ? 'none' : '';
+    document.getElementById('resetPill').style.display = n === 0 ? 'none' : '';
+}
 
-        if (isMatch) {
-            var specialActiveCount = 0; 
-            var specialPassCount = 0;   
+filterPanel.addEventListener('click', function(e) {
+    var chip = e.target.closest('.fchip');
+    if (!chip) return;
 
-            if (f_research !== "미설정") {
-                specialActiveCount++;
-                var hasResearch = data['research_topic'] !== null && data['research_topic'] !== undefined && String(data['research_topic']).trim() !== "" && String(data['research_topic']) !== "-";
-                if ((f_research === "지정교" && hasResearch) || (f_research === "미지정교" && !hasResearch)) {
-                    specialPassCount++;
-                }
-            }
-
-            if (f_ib !== "미설정") {
-                specialActiveCount++;
-                var hasIB = data['ib_stage'] !== null && data['ib_stage'] !== undefined && String(data['ib_stage']).trim() !== "" && String(data['ib_stage']) !== "-";
-                var passIB = false;
-                if (f_ib === "지정교") passIB = hasIB;
-                else if (f_ib === "미지정교") passIB = !hasIB;
-                else passIB = (hasIB && String(data['ib_stage']).includes(f_ib));
-                
-                if (passIB) {
-                    specialPassCount++;
-                }
-            }
-
-            if (f_future !== "미설정") {
-                specialActiveCount++;
-                var hasFuture = (data['future_total_years'] !== null && data['future_total_years'] !== undefined && String(data['future_total_years']).trim() !== "" && String(data['future_total_years']) !== "-") ||
-                                (data['future_year'] !== null && data['future_year'] !== undefined && String(data['future_year']).trim() !== "" && String(data['future_year']) !== "-");
-                if ((f_future === "지정교" && hasFuture) || (f_future === "미지정교" && !hasFuture)) {
-                    specialPassCount++;
-                }
-            }
-
-            if (specialActiveCount > 0) {
-                if (filterMode === 'and') {
-                    if (specialPassCount < specialActiveCount) isMatch = false;
-                } else if (filterMode === 'or') {
-                    if (specialPassCount === 0) isMatch = false;
-                }
-            }
-        }
-
-        if (isMatch) {
-            matched.push(target);
-        } else {
-            target.infoWindow.close();
-        }
+    if (chip.dataset.grade) {
+        var g = chip.dataset.grade;
+        var i = filters.grades.indexOf(g);
+        if (i > -1) filters.grades.splice(i, 1);
+        else filters.grades.push(g);
+    } else {
+        filters[CHIP_SETS[chip.dataset.set].key] = chip.dataset.val;
     }
 
+    renderChips();
+    updateFilterBadge();
+    applyFilters();
+});
+
+var classRange = document.getElementById('fClass');
+classRange.addEventListener('input', function() {
+    filters.minClass = parseInt(classRange.value, 10);
+    document.getElementById('fClassVal').textContent =
+        filters.minClass <= 1 ? '전체' : filters.minClass + '학급';
+    updateFilterBadge();
+});
+classRange.addEventListener('change', applyFilters);
+
+function applyFilters() {
+    var matched = [];
+
+    allEntries.forEach(function(entry) {
+        var data = entry.rawData;
+        var isMatch = true;
+
+        if (filters.district !== '전체' && data['district'] !== filters.district) isMatch = false;
+        if (has(data['grade_class']) && filters.grades.indexOf(String(data['grade_class']).trim()) === -1) isMatch = false;
+
+        var total = parseInt(data['class_total'], 10);
+        if (!isNaN(total) && total < filters.minClass) isMatch = false;
+
+        if (isMatch) {
+            var activeCount = 0, passCount = 0;
+
+            if (filters.research !== '미설정') {
+                activeCount++;
+                var hasResearch = has(data['research_topic']);
+                if ((filters.research === '지정교' && hasResearch) ||
+                    (filters.research === '미지정교' && !hasResearch)) passCount++;
+            }
+
+            if (filters.ib !== '미설정') {
+                activeCount++;
+                var hasIB = has(data['ib_stage']);
+                var passIB;
+                if (filters.ib === '지정교') passIB = hasIB;
+                else if (filters.ib === '미지정교') passIB = !hasIB;
+                else passIB = hasIB && String(data['ib_stage']).indexOf(filters.ib) > -1;
+                if (passIB) passCount++;
+            }
+
+            if (filters.future !== '미설정') {
+                activeCount++;
+                var hasFuture = has(data['future_total_years']) || has(data['future_year']);
+                if ((filters.future === '지정교' && hasFuture) ||
+                    (filters.future === '미지정교' && !hasFuture)) passCount++;
+            }
+
+            if (activeCount > 0) {
+                if (filters.mode === 'and' && passCount < activeCount) isMatch = false;
+                if (filters.mode === 'or' && passCount === 0) isMatch = false;
+            }
+        }
+
+        if (isMatch) matched.push(entry);
+    });
+
     visibleEntries = matched;
+
+    // 걸러진 학교의 시트가 열려 있으면 닫는다.
+    if (selectedEntry && matched.indexOf(selectedEntry) === -1) closeSheet();
+
     renderMarkers(true);
 }
 
-// 모바일에서는 세부검색이 펼쳐져 있으면 지도를 절반 가려서, 접힌 상태로 시작한다.
-if (window.innerWidth <= 768) {
-    document.getElementById('filter-box').style.display = 'none';
-    var initBtn = document.getElementById('toggleFilterBtn');
-    initBtn.innerText = '▼ 세부검색';
-    initBtn.style.background = '#2ECC71';
+function resetFilters() {
+    filters = JSON.parse(JSON.stringify(DEFAULTS));
+    classRange.value = 1;
+    document.getElementById('fClassVal').textContent = '전체';
+    renderChips();
+    updateFilterBadge();
+    applyFilters();
 }
 
-naver.maps.Event.addListener(map, 'click', function(e) {
-    for (var schoolName in schoolDataMap) {
-        var infoWindow = schoolDataMap[schoolName].infoWindow;
-        if (infoWindow.getMap()) {
-            infoWindow.close();
-        }
+document.getElementById('filterBtn').addEventListener('click', function() {
+    var show = !filterPanel.classList.contains('show');
+    closePanels();
+    if (show) {
+        filterPanel.classList.add('show');
+        this.classList.add('on');
     }
 });
+document.getElementById('fApply').addEventListener('click', function() {
+    closePanels();
+    toast(visibleEntries.length + '개 학교');
+});
+document.getElementById('fReset').addEventListener('click', resetFilters);
+document.getElementById('resetPill').addEventListener('click', function() {
+    resetFilters();
+    toast('조건을 모두 해제했습니다.');
+});
+document.getElementById('boundaryPill').addEventListener('click', toggleBoundaries);
+
+renderChips();
+updateFilterBadge();
+settleSheet(false, false);
