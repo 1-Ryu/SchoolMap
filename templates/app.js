@@ -718,7 +718,9 @@ function renderChips() {
             var val = Array.isArray(it) ? it[0] : it;
             var label = Array.isArray(it) ? it[1] : it;
             var on = filters[set.key] === val;
-            return '<button class="fchip' + (on ? ' on' : '') + '" data-set="' + id + '" data-val="' + val + '">' + label + '</button>';
+            // 기본값(조건 없음)은 고른 것이 아니므로 강조색을 쓰지 않는다.
+            var cls = 'fchip' + (on ? ' on' : '') + (on && DEFAULTS[set.key] === val ? ' dflt' : '');
+            return '<button class="' + cls + '" data-set="' + id + '" data-val="' + val + '">' + label + '</button>';
         }).join('');
     });
 
@@ -731,9 +733,12 @@ function renderChips() {
     // 급지 칩은 색 견본을 함께 보여준다. 이것이 곧 마커 색의 범례다.
     // 같은 줄 끝에 지원청 구역 표시를 붙인다. 학교를 거르는 조건은 아니지만
     // 지도에 무엇을 겹쳐 볼지 정하는 것이라 여기 두는 편이 찾기 쉽다.
+    // 넷 다 켜져 있으면 거른 것이 없는 기본 상태다.
+    var gradeUntouched = filters.grades.length === GRADES.length;
     document.getElementById('fGrade').innerHTML = GRADES.map(function(g) {
         var on = filters.grades.indexOf(g) > -1;
-        return '<button class="fchip grade' + (on ? ' on' : '') + '" data-grade="' + g + '">' +
+        var cls = 'fchip grade' + (on ? ' on' : '') + (on && gradeUntouched ? ' dflt' : '');
+        return '<button class="' + cls + '" data-grade="' + g + '">' +
                '<i class="sw" style="background:' + toneFor(g).b + '"></i>' + g + '급지</button>';
     }).join('');
 }
