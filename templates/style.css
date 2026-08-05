@@ -115,18 +115,25 @@ body {
     padding: 16px 12px; max-height: 64vh; overflow-y: auto;
 }
 #filterpanel.show { display: block; }
-.fgroup + .fgroup { margin-top: 16px; }
-.fgroup > h4 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--text-3); }
-.fchips { display: flex; flex-wrap: wrap; gap: 5px; }
+.fgroup + .fgroup { margin-top: 18px; }
+.fgroup > h4 { margin: 0 0 9px; font-size: 12.5px; font-weight: 600; color: var(--text-3); }
+.fchips { display: flex; flex-wrap: wrap; gap: 6px; }
 .fchip {
     display: inline-flex; align-items: center; gap: 5px;
-    /* 좁은 폰(360px)에서도 IB 6칸이 한 줄에 들어가도록 좌우를 줄였다.
-       높이는 32px 그대로라 손가락으로 누르는 데는 영향이 없다. */
-    height: 32px; padding: 0 8px; border: 0; border-radius: var(--r-badge);
+    /* 좌우는 좁은 폰에서 한 줄에 들어가도록 아껴 쓰고, 대신 높이를 키워
+       빈 느낌을 줄인다. 높이는 폭과 달리 줄바꿈에 영향을 주지 않는다. */
+    height: 36px; padding: 0 10px; border: 0; border-radius: var(--r-badge);
     background: var(--chip-bg); color: var(--text-2);
-    font: 500 13px/1 inherit; cursor: pointer;
+    font: 500 13.5px/1 inherit; cursor: pointer;
     transition: background .16s, color .16s;
 }
+/* 조건 칩과 구분되도록 오른쪽 끝으로 민다. 덕분에 비어 보이던 우측도 채워진다. */
+.fchip.bd { margin-left: auto; }
+
+/* 칸 수가 적은 줄은 오른쪽이 휑하게 남는다. 남는 폭을 나눠 가지게 해
+   한 덩어리로 보이게 한다. 기준을 0이 아니라 각자의 글자 폭(auto)으로 두면,
+   긴 글자가 든 칸이 그만큼 더 가져가므로 어느 칸도 잘리지 않는다. */
+.fchips.wide .fchip { flex: 1 1 auto; justify-content: center; }
 .fchip.on { background: var(--accent); color: var(--accent-on); }
 .fchip .sw {
     width: 12px; height: 12px; border-radius: 4px; flex: 0 0 auto;
@@ -139,9 +146,14 @@ body {
 .fchip.grade:not(.on) { color: var(--text-3); }
 .fchip.grade:not(.on) .sw { opacity: .28; }
 
-.frange { display: flex; align-items: center; gap: 10px; }
+/* 값 칸을 넓게 잡아두면 슬라이더가 그만큼 짧아져 오른쪽이 비어 보인다.
+   글자만큼만 차지하게 두고 남는 폭은 전부 슬라이더에 준다. */
+.frange { display: flex; align-items: center; gap: 12px; }
 .frange input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); cursor: pointer; }
-.frange b { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 62px; text-align: right; }
+.frange b {
+    flex: 0 0 auto; font-size: 15px; font-weight: 700;
+    font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--accent-ink);
+}
 .fnote { margin: 6px 0 0; font-size: 11.5px; color: var(--text-3); line-height: 1.5; }
 .factions { display: flex; gap: 8px; margin-top: 18px; }
 .factions button { height: 44px; border-radius: var(--r-btn); font: 600 14px/1 inherit; cursor: pointer; }

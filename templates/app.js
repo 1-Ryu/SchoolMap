@@ -722,17 +722,20 @@ function renderChips() {
         }).join('');
     });
 
+    // 지원청 구역은 학교를 거르는 조건이 아니라 지도에 겹쳐 볼 것을 정하는 스위치다.
+    // 지원청별 구분이라는 뜻이 같아 이 줄 끝에 두되, 오른쪽 끝으로 밀어 조건 칩과 구분한다.
+    document.getElementById('fDistrict').insertAdjacentHTML('beforeend',
+        '<button class="fchip bd' + (boundaryOn ? ' on' : '') + '" id="boundaryChip" ' +
+        'title="지도에 지원청 경계선 표시">구역</button>');
+
     // 급지 칩은 색 견본을 함께 보여준다. 이것이 곧 마커 색의 범례다.
     // 같은 줄 끝에 지원청 구역 표시를 붙인다. 학교를 거르는 조건은 아니지만
     // 지도에 무엇을 겹쳐 볼지 정하는 것이라 여기 두는 편이 찾기 쉽다.
     document.getElementById('fGrade').innerHTML = GRADES.map(function(g) {
         var on = filters.grades.indexOf(g) > -1;
-        // 묶음 제목이 이미 '급지'라 글자 하나로 충분하다. 좁은 폰에서
-        // '지원청 구역'까지 같은 줄에 들어가려면 이만큼 줄여야 한다.
         return '<button class="fchip grade' + (on ? ' on' : '') + '" data-grade="' + g + '">' +
-               '<i class="sw" style="background:' + toneFor(g).b + '"></i>' + g + '</button>';
-    }).join('') +
-    '<button class="fchip bd' + (boundaryOn ? ' on' : '') + '" id="boundaryChip">지원청 구역</button>';
+               '<i class="sw" style="background:' + toneFor(g).b + '"></i>' + g + '급지</button>';
+    }).join('');
 }
 
 function activeFilterCount() {
