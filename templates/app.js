@@ -87,6 +87,53 @@ var GU_TO_DISTRICT = {
     '달성군': '달성', '군위군': '군위'
 };
 
+/* 원본 경계선은 전국 지도용이라 점이 아주 촘촘하다. 대구만 추려도 26,000개가 넘는데,
+   켜둔 채로 지도를 움직이면 그 점을 매 프레임 다시 그리느라 화면이 끊긴다.
+   화면에서 구분되지 않을 만큼만(약 20m) 점을 솎아낸다.
+   재귀 대신 스택을 쓴다. 9,000점짜리 구역에서 호출이 깊어질 수 있다. */
+var SIMPLIFY_TOLERANCE = 0.0002;   // 위도 1도 ≈ 111km 이므로 약 22m
+
+function simplifyRing(pts, tol) {
+    if (pts.length < 3) return pts;
+
+    var keep = new Uint8Array(pts.length);
+    keep[0] = keep[pts.length - 1] = 1;
+    var stack = [[0, pts.length - 1]];
+    var tol2 = tol * tol;
+
+    while (stack.length) {
+        var seg = stack.pop(), first = seg[0], last = seg[1];
+        if (last - first < 2) continue;
+
+        var ax = pts[first][0], ay = pts[first][1];
+        var dx = pts[last][0] - ax, dy = pts[last][1] - ay;
+        var len2 = dx * dx + dy * dy;
+        var maxD = -1, idx = -1;
+
+        for (var i = first + 1; i < last; i++) {
+            var px = pts[i][0] - ax, py = pts[i][1] - ay, d;
+            if (len2 === 0) {
+                d = px * px + py * py;
+            } else {
+                var t = (px * dx + py * dy) / len2;
+                t = t < 0 ? 0 : (t > 1 ? 1 : t);
+                var cx = px - t * dx, cy = py - t * dy;
+                d = cx * cx + cy * cy;
+            }
+            if (d > maxD) { maxD = d; idx = i; }
+        }
+
+        if (maxD > tol2 && idx > -1) {
+            keep[idx] = 1;
+            stack.push([first, idx], [idx, last]);
+        }
+    }
+
+    var out = [];
+    for (var j = 0; j < pts.length; j++) if (keep[j]) out.push(pts[j]);
+    return out;
+}
+
 fetch(mapUrl)
     .then(function(response) {
         if (!response.ok) throw new Error("지도 데이터를 불러오지 못했습니다.");
@@ -105,7 +152,7 @@ fetch(mapUrl)
             var coords = feature.geometry.coordinates;
 
             function drawSinglePolygon(coordinateArray) {
-                var path = coordinateArray.map(function(coord) {
+                var path = simplifyRing(coordinateArray, SIMPLIFY_TOLERANCE).map(function(coord) {
                     return new naver.maps.LatLng(coord[1], coord[0]);
                 });
                 boundaryPolygons.push(new naver.maps.Polygon({
