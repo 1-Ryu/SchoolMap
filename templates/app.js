@@ -155,8 +155,11 @@ fetch(mapUrl)
                 var path = simplifyRing(coordinateArray, SIMPLIFY_TOLERANCE).map(function(coord) {
                     return new naver.maps.LatLng(coord[1], coord[0]);
                 });
+                // 지도에는 미리 붙여두고 보이기만 끈다. 붙였다 떼는 데는 30ms가 걸리는데
+                // setVisible은 즉시 처리되어, 미는 동안 껐다 켜도 걸리지 않는다.
                 boundaryPolygons.push(new naver.maps.Polygon({
-                    map: boundaryOn ? map : null,
+                    map: map,
+                    visible: false,
                     paths: [path],
                     fillColor: color, fillOpacity: 0.13,
                     strokeColor: color, strokeOpacity: 0.75, strokeWeight: 2
@@ -174,11 +177,26 @@ fetch(mapUrl)
         console.error("경계선을 불러오지 못했습니다:", error);
     });
 
+/* 경계선은 SVG 도형으로 그려진다. 화면을 덮는 큰 도형 10개를 매 프레임 다시 칠하는
+   셈이라, 점을 90% 줄여도 칠할 면적은 그대로여서 폰에서는 미는 동안 끊긴다.
+   움직이는 중에는 감추고 멈췄을 때만 보여준다. 지도를 미는 동안 경계선이 잠깐
+   사라지지만, 어차피 그때는 보고 있지 않다. */
+var boundaryShown = false;
+
+function showBoundaries(v) {
+    if (boundaryShown === v || boundaryPolygons.length === 0) return;
+    boundaryShown = v;
+    boundaryPolygons.forEach(function(p) { p.setVisible(v); });
+}
+
 function toggleBoundaries() {
     boundaryOn = !boundaryOn;
     document.getElementById('boundaryPill').classList.toggle('on', boundaryOn);
-    boundaryPolygons.forEach(function(p) { p.setMap(boundaryOn ? map : null); });
+    showBoundaries(boundaryOn);
 }
+
+naver.maps.Event.addListener(map, 'dragstart', function() { showBoundaries(false); });
+naver.maps.Event.addListener(map, 'zoom_changed', function() { showBoundaries(false); });
 
 /* ── 학교 데이터 ──────────────────────────────────────────────── */
 var schoolDataMap = {};
@@ -343,7 +361,10 @@ function renderMarkers(force) {
 
 // zoom_changed는 확대/축소 애니메이션 '도중에' 발생해서, 그때 마커를 갈아끼우면 화면이 튄다.
 // idle은 지도 움직임이 완전히 끝난 뒤에 한 번만 발생하므로 교체가 자연스럽다.
-naver.maps.Event.addListener(map, 'idle', function() { renderMarkers(); });
+naver.maps.Event.addListener(map, 'idle', function() {
+    renderMarkers();
+    showBoundaries(boundaryOn);
+});
 naver.maps.Event.addListener(map, 'click', function() { closePanels(); closeSheet(); });
 
 /* ── 네이버 길찾기 연결 ────────────────────────────────────────
@@ -678,12 +699,16 @@ var DEFAULTS = {
 };
 var filters = JSON.parse(JSON.stringify(DEFAULTS));
 
+/* 항목 이름은 [저장값, 화면표시] 순이다. IB는 칸이 6개라 '지정교/미지정교'를
+   그대로 쓰면 폰에서 한 줄에 안 들어간다. 묶음 제목이 이미 'IB학교'라
+   '지정/미지정'만으로도 뜻이 통해서 짧게 적는다. */
 var CHIP_SETS = {
-    fDistrict: { key: 'district', multi: false, items: ['전체', '동부', '서부', '남부', '달성', '군위'] },
-    fResearch: { key: 'research', multi: false, items: ['미설정', '지정교', '미지정교'] },
-    fIb:       { key: 'ib',       multi: false, items: ['미설정', '지정교', '관심', '후보', '월드', '미지정교'] },
-    fFuture:   { key: 'future',   multi: false, items: ['미설정', '지정교', '미지정교'] },
-    fMode:     { key: 'mode',     multi: false, items: [['and', '모두 만족'], ['or', '하나라도']] }
+    fDistrict: { key: 'district', items: ['전체', '동부', '서부', '남부', '달성', '군위'] },
+    fResearch: { key: 'research', items: [['미설정', '전체'], ['지정교', '지정'], ['미지정교', '미지정']] },
+    fIb:       { key: 'ib',       items: [['미설정', '전체'], ['지정교', '지정'], ['관심', '관심'],
+                                          ['후보', '후보'], ['월드', '월드'], ['미지정교', '미지정']] },
+    fFuture:   { key: 'future',   items: [['미설정', '전체'], ['지정교', '지정'], ['미지정교', '미지정']] },
+    fMode:     { key: 'mode',     items: [['and', '모두 만족'], ['or', '하나라도']] }
 };
 
 function renderChips() {
