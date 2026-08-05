@@ -688,9 +688,13 @@ document.addEventListener('pointerdown', function(e) {
 }, true);
 
 /* ── 필터 ─────────────────────────────────────────────────────── */
+var DISTRICTS = ['동부', '서부', '남부', '달성', '군위'];
+
+/* 지원청과 급지는 여러 개를 함께 고를 수 있어 목록으로 담는다.
+   켜져 있는 것이 곧 '보고 있는 것'이라, 처음에는 모두 켜둔다. */
 var DEFAULTS = {
-    district: '전체',
-    grades: ['가', '나', '다', '라'],
+    districts: DISTRICTS.slice(),
+    grades: GRADES.slice(),
     minClass: 1,
     research: '미설정',
     ib: '미설정',
@@ -703,7 +707,6 @@ var filters = JSON.parse(JSON.stringify(DEFAULTS));
    그대로 쓰면 폰에서 한 줄에 안 들어간다. 묶음 제목이 이미 'IB학교'라
    '지정/미지정'만으로도 뜻이 통해서 짧게 적는다. */
 var CHIP_SETS = {
-    fDistrict: { key: 'district', items: ['전체', '동부', '서부', '남부', '달성', '군위'] },
     fResearch: { key: 'research', items: [['미설정', '전체'], ['지정교', '지정'], ['미지정교', '미지정']] },
     fIb:       { key: 'ib',       items: [['미설정', '전체'], ['지정교', '지정'], ['관심', '관심'],
                                           ['후보', '후보'], ['월드', '월드'], ['미지정교', '미지정']] },
@@ -718,35 +721,32 @@ function renderChips() {
             var val = Array.isArray(it) ? it[0] : it;
             var label = Array.isArray(it) ? it[1] : it;
             var on = filters[set.key] === val;
-            // 기본값(조건 없음)은 고른 것이 아니므로 강조색을 쓰지 않는다.
-            var cls = 'fchip' + (on ? ' on' : '') + (on && DEFAULTS[set.key] === val ? ' dflt' : '');
-            return '<button class="' + cls + '" data-set="' + id + '" data-val="' + val + '">' + label + '</button>';
+            return '<button class="fchip' + (on ? ' on' : '') + '" data-set="' + id + '" data-val="' + val + '">' + label + '</button>';
         }).join('');
     });
 
+    // 켜진 것이 곧 보고 있는 것이다. 지원청도 여러 개를 함께 고를 수 있다.
+    document.getElementById('fDistrict').innerHTML = DISTRICTS.map(function(d) {
+        var on = filters.districts.indexOf(d) > -1;
+        return '<button class="fchip' + (on ? ' on' : '') + '" data-district="' + d + '">' + d + '</button>';
+    }).join('') +
     // 지원청 구역은 학교를 거르는 조건이 아니라 지도에 겹쳐 볼 것을 정하는 스위치다.
     // 지원청별 구분이라는 뜻이 같아 이 줄 끝에 두되, 오른쪽 끝으로 밀어 조건 칩과 구분한다.
-    document.getElementById('fDistrict').insertAdjacentHTML('beforeend',
-        '<button class="fchip bd' + (boundaryOn ? ' on' : '') + '" id="boundaryChip" ' +
-        'title="지도에 지원청 경계선 표시">구역</button>');
+    '<button class="fchip bd' + (boundaryOn ? ' on' : '') + '" id="boundaryChip" ' +
+    'title="지도에 지원청 경계선 표시">구역</button>';
 
     // 급지 칩은 색 견본을 함께 보여준다. 이것이 곧 마커 색의 범례다.
-    // 같은 줄 끝에 지원청 구역 표시를 붙인다. 학교를 거르는 조건은 아니지만
-    // 지도에 무엇을 겹쳐 볼지 정하는 것이라 여기 두는 편이 찾기 쉽다.
-    // 넷 다 켜져 있으면 거른 것이 없는 기본 상태다.
-    var gradeUntouched = filters.grades.length === GRADES.length;
     document.getElementById('fGrade').innerHTML = GRADES.map(function(g) {
         var on = filters.grades.indexOf(g) > -1;
-        var cls = 'fchip grade' + (on ? ' on' : '') + (on && gradeUntouched ? ' dflt' : '');
-        return '<button class="' + cls + '" data-grade="' + g + '">' +
+        return '<button class="fchip grade' + (on ? ' on' : '') + '" data-grade="' + g + '">' +
                '<i class="sw" style="background:' + toneFor(g).b + '"></i>' + g + '급지</button>';
     }).join('');
 }
 
 function activeFilterCount() {
     var n = 0;
-    if (filters.district !== DEFAULTS.district) n++;
-    if (filters.grades.length !== 4) n++;
+    if (filters.districts.length !== DISTRICTS.length) n++;
+    if (filters.grades.length !== GRADES.length) n++;
     if (filters.minClass > 1) n++;
     if (filters.research !== '미설정') n++;
     if (filters.ib !== '미설정') n++;
@@ -768,11 +768,16 @@ filterPanel.addEventListener('click', function(e) {
 
     if (chip.id === 'boundaryChip') { toggleBoundaries(); return; }
 
+    function toggleIn(list, v) {
+        var i = list.indexOf(v);
+        if (i > -1) list.splice(i, 1);
+        else list.push(v);
+    }
+
     if (chip.dataset.grade) {
-        var g = chip.dataset.grade;
-        var i = filters.grades.indexOf(g);
-        if (i > -1) filters.grades.splice(i, 1);
-        else filters.grades.push(g);
+        toggleIn(filters.grades, chip.dataset.grade);
+    } else if (chip.dataset.district) {
+        toggleIn(filters.districts, chip.dataset.district);
     } else {
         filters[CHIP_SETS[chip.dataset.set].key] = chip.dataset.val;
     }
@@ -798,7 +803,7 @@ function applyFilters() {
         var data = entry.rawData;
         var isMatch = true;
 
-        if (filters.district !== '전체' && data['district'] !== filters.district) isMatch = false;
+        if (filters.districts.indexOf(String(data['district']).trim()) === -1) isMatch = false;
         if (has(data['grade_class']) && filters.grades.indexOf(String(data['grade_class']).trim()) === -1) isMatch = false;
 
         var total = parseInt(data['class_total'], 10);
