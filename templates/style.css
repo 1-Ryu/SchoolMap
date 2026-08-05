@@ -41,7 +41,11 @@ body {
 }
 #topbar > * { pointer-events: auto; }
 
+/* 검색창·필터·초기화를 한 줄에 둔다. */
+.toprow { display: flex; align-items: center; gap: 8px; }
+
 .searchfield {
+    flex: 1; min-width: 0;
     display: flex; align-items: center; gap: 8px;
     height: var(--field-h); padding: 0 14px;
     background: var(--surface); border-radius: var(--r-field);
@@ -59,19 +63,21 @@ body {
 }
 .searchfield.filled button { display: block; }
 
-/* 조건이 여러 개라 알약으로 늘어놓으면 폰에서 잘린다. 버튼 하나로 접는다. */
-.pills { display: flex; gap: 6px; flex-wrap: wrap; }
-.pill, #filterBtn {
-    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
-    height: 34px; padding: 0 13px; border: 0; border-radius: 999px;
-    background: var(--surface); color: var(--text-2);
-    font: 500 13px/1 inherit; white-space: nowrap; cursor: pointer;
+/* 조건이 여러 개라 알약으로 늘어놓으면 폰에서 잘린다. 버튼 하나로 접고
+   검색창과 같은 줄에 둔다. 아래에 줄이 하나 줄어 지도가 그만큼 넓어진다. */
+#filterBtn, #resetBtn {
+    flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    height: var(--field-h); border: 0; border-radius: var(--r-field);
+    background: var(--surface); color: var(--text);
+    font: 600 13px/1 inherit; white-space: nowrap; cursor: pointer;
     box-shadow: var(--shadow-float);
     transition: transform .12s ease, background .16s, color .16s;
 }
-#filterBtn { color: var(--text); font-weight: 600; }
-.pill:active, #filterBtn:active { transform: scale(.96); }
-.pill.on, #filterBtn.on { background: var(--accent); color: var(--accent-on); }
+#filterBtn { padding: 0 13px; }
+#resetBtn { width: var(--field-h); padding: 0; color: var(--text-2); }
+#resetBtn[hidden] { display: none; }
+#filterBtn:active, #resetBtn:active { transform: scale(.96); }
+#filterBtn.on { background: var(--accent); color: var(--accent-on); }
 #filterBtn .cnt {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;

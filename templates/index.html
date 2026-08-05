@@ -29,33 +29,37 @@
     <!-- 🌟 디자인(CSS) 파일 연결
          뒤의 v= 숫자는 브라우저가 예전 파일을 계속 쓰지 않게 하려는 표시다.
          style.css나 app.js를 고쳤으면 이 숫자를 함께 올려야 반영된다. -->
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
 <div id="map"></div>
 
 <div id="topbar">
-    <div class="searchfield" id="searchfield">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-            <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
-        </svg>
-        <input type="text" id="searchInput" placeholder="학교명으로 찾기 (예: 공산초)" aria-label="학교명 검색" autocomplete="off">
-        <button id="searchClear" aria-label="지우기">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
-                <path d="M6 6l12 12M18 6L6 18"/>
+    <div class="toprow">
+        <div class="searchfield" id="searchfield">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
             </svg>
-        </button>
-    </div>
+            <input type="text" id="searchInput" placeholder="학교명 검색" aria-label="학교명 검색" autocomplete="off">
+            <button id="searchClear" aria-label="지우기">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                    <path d="M6 6l12 12M18 6L6 18"/>
+                </svg>
+            </button>
+        </div>
 
-    <div class="pills">
         <button id="filterBtn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
                 <path d="M4 6h16M7 12h10M10 18h4"/>
             </svg>필터<span class="cnt" id="filterCount">0</span>
         </button>
-        <button class="pill" id="boundaryPill">지원청 구역</button>
-        <button class="pill" id="resetPill">전체 보기</button>
+
+        <button id="resetBtn" aria-label="조건 초기화" title="조건 초기화">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 11.5A8 8 0 1 1 17.4 6"/><path d="M20.5 3.5V9h-5.5"/>
+            </svg>
+        </button>
     </div>
 
     <div id="searchlist"></div>
@@ -150,6 +154,6 @@
 <div id="toast"></div>
 
 <!-- 🌟 작동(JavaScript) 파일 연결 (body 태그 닫기 직전에 넣는 것이 정석입니다) -->
-<script src="app.js?v=2"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

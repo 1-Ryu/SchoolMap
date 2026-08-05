@@ -191,8 +191,8 @@ function showBoundaries(v) {
 
 function toggleBoundaries() {
     boundaryOn = !boundaryOn;
-    document.getElementById('boundaryPill').classList.toggle('on', boundaryOn);
     showBoundaries(boundaryOn);
+    renderChips();   // 필터 안 '지원청 구역' 칩의 켜짐 표시를 맞춘다
 }
 
 naver.maps.Event.addListener(map, 'dragstart', function() { showBoundaries(false); });
@@ -723,11 +723,16 @@ function renderChips() {
     });
 
     // 급지 칩은 색 견본을 함께 보여준다. 이것이 곧 마커 색의 범례다.
+    // 같은 줄 끝에 지원청 구역 표시를 붙인다. 학교를 거르는 조건은 아니지만
+    // 지도에 무엇을 겹쳐 볼지 정하는 것이라 여기 두는 편이 찾기 쉽다.
     document.getElementById('fGrade').innerHTML = GRADES.map(function(g) {
         var on = filters.grades.indexOf(g) > -1;
+        // 묶음 제목이 이미 '급지'라 글자 하나로 충분하다. 좁은 폰에서
+        // '지원청 구역'까지 같은 줄에 들어가려면 이만큼 줄여야 한다.
         return '<button class="fchip grade' + (on ? ' on' : '') + '" data-grade="' + g + '">' +
-               '<i class="sw" style="background:' + toneFor(g).b + '"></i>' + g + '급지</button>';
-    }).join('');
+               '<i class="sw" style="background:' + toneFor(g).b + '"></i>' + g + '</button>';
+    }).join('') +
+    '<button class="fchip bd' + (boundaryOn ? ' on' : '') + '" id="boundaryChip">지원청 구역</button>';
 }
 
 function activeFilterCount() {
@@ -745,12 +750,15 @@ function updateFilterBadge() {
     var n = activeFilterCount();
     document.getElementById('filterCount').textContent = n;
     document.getElementById('filterCount').style.display = n === 0 ? 'none' : '';
-    document.getElementById('resetPill').style.display = n === 0 ? 'none' : '';
+    // 걸린 조건이 없으면 초기화 버튼을 숨겨 검색창에 자리를 내준다.
+    document.getElementById('resetBtn').hidden = n === 0;
 }
 
 filterPanel.addEventListener('click', function(e) {
     var chip = e.target.closest('.fchip');
     if (!chip) return;
+
+    if (chip.id === 'boundaryChip') { toggleBoundaries(); return; }
 
     if (chip.dataset.grade) {
         var g = chip.dataset.grade;
@@ -854,11 +862,10 @@ document.getElementById('fApply').addEventListener('click', function() {
     toast(visibleEntries.length + '개 학교');
 });
 document.getElementById('fReset').addEventListener('click', resetFilters);
-document.getElementById('resetPill').addEventListener('click', function() {
+document.getElementById('resetBtn').addEventListener('click', function() {
     resetFilters();
     toast('조건을 모두 해제했습니다.');
 });
-document.getElementById('boundaryPill').addEventListener('click', toggleBoundaries);
 
 renderChips();
 updateFilterBadge();
