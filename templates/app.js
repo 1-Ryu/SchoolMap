@@ -497,27 +497,38 @@ function renderHome() {
     }
 }
 
+/* 집을 찍으려면 시트를 닫아야 하는데, 닫으면 보던 학교가 해제된다.
+   집만 바꾸려던 것이지 보던 것을 그만두려던 게 아니므로, 찍기 전에
+   무엇을 보고 있었는지 붙잡아뒀다가 끝나면 그리로 돌아간다. */
+var pickReturnEntry = null;
+
 function startPickHome() {
     pickingHome = true;
+    pickReturnEntry = selectedEntry;      // closeSheet가 지우기 전에 붙잡는다
     document.body.classList.add('picking');
     document.getElementById('pickbar').classList.add('show');
     closePanels();
     closeSheet();
+    clearRoute();                         // 집이 바뀌면 이 경로는 의미가 없다
 }
 
 function cancelPickHome() {
     pickingHome = false;
     document.body.classList.remove('picking');
     document.getElementById('pickbar').classList.remove('show');
+
+    var back = pickReturnEntry;
+    pickReturnEntry = null;
+    // 취소했으면 원래 경로가 그대로, 새로 찍었으면 새 집 기준으로 다시 계산된다.
+    if (back) selectSchool(back);
 }
 
 function setHome(coord) {
     homePosition = { lat: coord.lat(), lng: coord.lng() };
     saveHome();
     renderHome();
-    cancelPickHome();
     updateHomeUI();
-    if (selectedEntry) fillSheet(selectedEntry);
+    cancelPickHome();
 }
 
 function updateHomeUI() {
