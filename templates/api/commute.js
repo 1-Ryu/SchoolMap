@@ -83,6 +83,9 @@ module.exports = async function handler(req, res) {
             ok: true,
             minutes: Math.max(1, Math.round(route.summary.duration / 60000)),
             km: Math.round(route.summary.distance / 100) / 10,
+            // 출퇴근은 매일 왕복이라 통행료가 쌓인다. 편도 1,500원이면 한 달에
+            // 6만 원이 넘어서, 학교를 고를 때 시간만큼 중요한 정보다.
+            toll: route.summary.tollFare || 0,
             // 경로 좌표는 [경도, 위도] 목록이다. 점이 수백 개라 그대로 그리면
             // 무거우므로, 화면에 올릴 때 솎아낸다. (app.js의 simplifyRing)
             path: route.path || []

@@ -576,7 +576,9 @@ function showCommute(v) {
         note.textContent = '길찾기를 누르면 우리집이 출발지로 채워집니다.';
     } else {
         main.textContent = '지금 출발하면 ' + v.minutes + '분 · ' + v.km.toFixed(1) + 'km';
-        note.textContent = '실시간 교통 기준이라 시간대에 따라 달라집니다.';
+        // 통행료는 있을 때만 적는다. 없는 경로에까지 '0원'을 띄우면 잔소리가 된다.
+        note.textContent = (v.toll ? '통행료 ' + v.toll.toLocaleString('ko-KR') + '원 · ' : '') +
+                           '실시간 교통 기준이라 시간대에 따라 달라집니다.';
     }
 }
 
@@ -602,7 +604,7 @@ function fetchCommute(entry) {
         .then(function(d) {
             // 기다리는 사이 다른 학교를 열었으면 그 화면을 덮어쓰지 않는다.
             if (seq !== commuteSeq) return;
-            var v = (d && d.ok) ? { minutes: d.minutes, km: d.km, path: d.path } : null;
+            var v = (d && d.ok) ? { minutes: d.minutes, km: d.km, toll: d.toll, path: d.path } : null;
             commuteCache[key] = v;
             showCommute(v);
             drawRoute(v && v.path);
