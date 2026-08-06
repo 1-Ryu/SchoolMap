@@ -369,8 +369,7 @@ naver.maps.Event.addListener(map, 'idle', function() {
 naver.maps.Event.addListener(map, 'click', function(e) {
     if (pickingHome) { setHome(e.coord); return; }
     closePanels();
-    closeSheet();
-    clearRoute();
+    closeSheetByTap();
 });
 
 /* 길게 누르기(longtap)로도 집을 옮길 수 있게 해봤지만, 기기에 따라 지도가
@@ -665,6 +664,22 @@ function settleSheet(open, animate) {
     scrim.classList.toggle('show', open);
     sheet.setAttribute('aria-hidden', open ? 'false' : 'true');
     if (!open) sheetScroll.scrollTop = 0;
+    else sheetOpenedAt = Date.now();
+}
+
+/* 폰에서는 지도를 한 번 누르면 브라우저가 클릭 신호를 조금 늦게 한 번 더 보낸다.
+   그 사이 시트가 열려 어두운 막이 화면을 덮으면, 늦게 도착한 클릭이 막에 떨어져
+   방금 연 시트를 그대로 닫아버린다. (집을 찍으면 경로만 남고 시트가 사라지던 증상)
+   시트를 띄운 바로 그 손짓이 뒤늦게 도착한 것이니 닫으라는 뜻일 리가 없다.
+
+   '바깥을 눌러 닫기'에만 건다. X 버튼과 손잡이 끌기는 그대로여서,
+   이 유예 때문에 시트를 못 닫는 상황은 생기지 않는다. */
+var sheetOpenedAt = 0;
+
+function closeSheetByTap() {
+    if (Date.now() - sheetOpenedAt < 350) return;
+    closeSheet();
+    clearRoute();
 }
 
 window.addEventListener('resize', function() { measureSheet(); settleSheet(sheetOpen, false); });
@@ -700,7 +715,7 @@ function closeSheet() {
 }
 
 document.getElementById('closeBtn').addEventListener('click', closeSheet);
-scrim.addEventListener('click', closeSheet);
+scrim.addEventListener('click', closeSheetByTap);
 
 /* 끌어서 닫기 */
 var drag = null;
