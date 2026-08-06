@@ -3,3 +3,7 @@ __pycache__/
 
 # 이 컴퓨터에만 해당하는 개인 권한 설정
 .claude/settings.local.json
+
+# 데이터를 한 번 받아올 때만 쓰는 인증키. 저장소에 올라가면 안 된다.
+.schoolinfo-key
+*.key
