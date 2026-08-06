@@ -547,9 +547,11 @@ function drawRoute(path) {
     clearRoute();
     if (!path || path.length < 2) return;
 
-    // 경계선에서 배운 것과 같다. 점이 많으면 지도를 움직일 때마다 다시 그리느라
-    // 무거워진다. 화면에서 구분되지 않을 만큼(약 22m) 솎아낸다.
-    var pts = simplifyRing(path, SIMPLIFY_TOLERANCE).map(function(c) {
+    // 경계선과 달리 아주 조금만 솎아낸다. 경계선은 넓은 구역의 테두리라
+    // 22m쯤 어긋나도 안 보이지만, 경로선은 도로 위에 얹혀 있어야 해서
+    // 그만큼 어긋나면 길을 벗어나 보인다. 여기서는 3m 기준으로 잡는다.
+    // 어차피 한 경로는 점이 수백 개뿐이라 채움도 없어 가볍다.
+    var pts = simplifyRing(path, 0.00003).map(function(c) {
         return new naver.maps.LatLng(c[1], c[0]);
     });
 
@@ -573,7 +575,7 @@ function showCommute(v) {
         main.textContent = '우리집에서 출발';
         note.textContent = '길찾기를 누르면 우리집이 출발지로 채워집니다.';
     } else {
-        main.textContent = '지금 출발하면 ' + v.minutes + '분 · ' + v.km + 'km';
+        main.textContent = '지금 출발하면 ' + v.minutes + '분 · ' + v.km.toFixed(1) + 'km';
         note.textContent = '실시간 교통 기준이라 시간대에 따라 달라집니다.';
     }
 }
