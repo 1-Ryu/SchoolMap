@@ -785,11 +785,44 @@ function fillSheet(entry) {
         document.getElementById('sSetHome').textContent = '설정';
     }
 
-    var total = s['class_total'], reg = s['class_regular'], sp = s['class_special'];
+    /* 학급수·학생수·보직교사는 학교알리미 2026년 공시에서 온 값이다.
+       총 학급은 저장된 값이 아니라 학년별 합 + 특수학급으로 계산한다.
+       그래야 아래 표의 숫자와 화면 안에서 항상 맞아떨어진다. */
+    var cls = [], stu = [];
+    for (var g = 1; g <= 6; g++) {
+        cls.push(parseInt(s['class_g' + g], 10) || 0);
+        stu.push(parseInt(s['student_g' + g], 10) || 0);
+    }
+    var special = parseInt(s['class_special_now'], 10) || 0;
+    var clsSum = cls.reduce(function(a, b) { return a + b; }, 0);
+    var head = parseInt(s['head_teacher'], 10);
+
     document.getElementById('sStats').innerHTML =
-        '<div class="stat"><div class="k">총 학급</div><div class="v">' + total + '<u>학급</u></div></div>' +
-        '<div class="stat"><div class="k">일반 / 특수</div><div class="v">' + reg + '<u> / </u>' + sp + '</div></div>' +
-        '<div class="stat"><div class="k">급지</div><div class="v">' + (has(s['grade_class']) ? s['grade_class'] : '—') + '</div></div>';
+        '<div class="stat"><div class="k">총 학급(특수)</div><div class="v">' +
+            (clsSum + special) + '<u>학급(' + special + ')</u></div></div>' +
+        '<div class="stat"><div class="k">보직교사</div><div class="v">' +
+            (isFinite(head) ? head : '—') + '<u>명</u></div></div>' +
+        '<div class="stat"><div class="k">급지</div><div class="v">' +
+            (has(s['grade_class']) ? s['grade_class'] : '—') + '</div></div>';
+
+    // 소수점이 0이면 떼어낸다. 18.0이 아니라 18로 적는다.
+    function avg(students, classes) {
+        if (!classes) return null;
+        var v = Math.round(students / classes * 10) / 10;
+        return (v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)) + '명';
+    }
+
+    var body = '';
+    for (var i = 0; i < 6; i++) {
+        var a = avg(stu[i], cls[i]);
+        body += '<tr><td>' + (i + 1) + '학년</td>' +
+                '<td class="' + (cls[i] === 0 ? 'none' : (cls[i] === 1 ? 'alone' : '')) + '">' +
+                    (cls[i] === 0 ? '없음' : cls[i]) + '</td>' +
+                '<td class="' + (a ? '' : 'none') + '">' + (a || '—') + '</td></tr>';
+    }
+    document.getElementById('sGrades').innerHTML =
+        '<thead><tr><th>학년</th><th>학급수</th><th>학급당 평균 학생 수</th></tr></thead>' +
+        '<tbody>' + body + '</tbody>';
 
     function row(k, on, v) {
         return '<div class="row"><div class="k">' + k + '</div>' +
