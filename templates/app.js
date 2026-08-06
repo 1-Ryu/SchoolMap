@@ -522,6 +522,60 @@ function updateHomeUI() {
     document.getElementById('homeBtn').classList.toggle('set', !!homePosition);
 }
 
+/* ── 자동차 소요시간 ──────────────────────────────────────────
+   학교를 열 때 그 학교 하나만 물어본다. 233곳을 한꺼번에 계산하지 않는다.
+   같은 집·같은 학교는 다시 묻지 않도록 기억해둔다. */
+var commuteCache = {};
+var commuteSeq = 0;
+
+function homeKey() {
+    return homePosition ? homePosition.lat.toFixed(5) + ',' + homePosition.lng.toFixed(5) : '';
+}
+
+function showCommute(v) {
+    var main = document.getElementById('sCommute');
+    var note = document.getElementById('sCommuteNote');
+
+    if (!v) {
+        // 키가 아직 없거나 경로를 못 찾은 경우다. 실패를 알리기보다 원래 쓰던
+        // 안내로 돌아간다. 사용자는 길찾기로 확인하면 되고, 놀랄 이유가 없다.
+        main.textContent = '우리집에서 출발';
+        note.textContent = '길찾기를 누르면 우리집이 출발지로 채워집니다.';
+    } else {
+        main.textContent = '지금 출발하면 ' + v.minutes + '분 · ' + v.km + 'km';
+        note.textContent = '실시간 교통 기준이라 시간대에 따라 달라집니다.';
+    }
+}
+
+function fetchCommute(entry) {
+    var s = entry.rawData;
+    var key = homeKey() + '|' + s['school_name'];
+
+    if (commuteCache[key] !== undefined) {
+        commuteSeq++;                     // 늦게 도착할 이전 응답을 무시시킨다
+        showCommute(commuteCache[key]);
+        return;
+    }
+
+    var seq = ++commuteSeq;
+    document.getElementById('sCommute').textContent = '소요시간 확인 중…';
+    document.getElementById('sCommuteNote').textContent = '우리집에서 자동차로';
+
+    fetch('/api/commute?slat=' + homePosition.lat + '&slng=' + homePosition.lng +
+          '&dlat=' + s['latitude'] + '&dlng=' + s['longitude'])
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            // 기다리는 사이 다른 학교를 열었으면 그 화면을 덮어쓰지 않는다.
+            if (seq !== commuteSeq) return;
+            var v = (d && d.ok) ? { minutes: d.minutes, km: d.km } : null;
+            commuteCache[key] = v;
+            showCommute(v);
+        })
+        .catch(function() {
+            if (seq === commuteSeq) showCommute(null);
+        });
+}
+
 function clearHome() {
     homePosition = null;
     saveHome();
@@ -652,16 +706,14 @@ function fillSheet(entry) {
 
     // 직선거리는 적지 않는다. 대구는 강과 산 때문에 직선거리와 실제 경로가
     // 한쪽으로 크게 어긋나서, 학교를 고르는 근거로 쓸 수 없다.
-    // 이 자리는 나중에 실제 운전 소요시간이 들어올 자리다.
     if (homePosition) {
-        document.getElementById('sCommute').textContent = '우리집에서 출발';
-        document.getElementById('sCommuteNote').textContent =
-            '길찾기를 누르면 우리집이 출발지로 채워집니다.';
         document.getElementById('sSetHome').textContent = '변경';
+        fetchCommute(entry);
     } else {
+        commuteSeq++;
         document.getElementById('sCommute').textContent = '우리집을 정해두면 편해요';
         document.getElementById('sCommuteNote').textContent =
-            '길찾기 출발지가 자동으로 채워집니다.';
+            '학교까지 자동차로 몇 분인지 바로 볼 수 있어요.';
         document.getElementById('sSetHome').textContent = '설정';
     }
 
