@@ -12,9 +12,6 @@ var map = new naver.maps.Map('map', {
 /* ── 급지 색 ───────────────────────────────────────────────────
    한 계열 안에서 밝기를 네 단계로 고르게 벌린다. 색을 구분하지 못해도
    진하기만으로 순서가 읽히게 하려는 것이다.
-   밝은 단계는 흰 숫자가 안 읽혀서 글자색을 짝으로 함께 지정한다. */
-/* 한 계열 안에서 밝기를 네 단계로 고르게 벌린다. 색을 구분하지 못해도
-   진하기만으로 순서가 읽히게 하려는 것이다.
    숫자는 네 단계 모두 흰색으로 통일했다. 다·라는 배경이 밝아 대비가 낮으므로
    (다 2.1:1, 라 1.4:1) 숫자가 흐리게 보인다면 글자에 외곽선을 넣어야 한다. */
 var GRADE_TONE = {
@@ -36,8 +33,9 @@ var DISTRICT_COLORS = {
 
 /* ── 마커 아이콘 ───────────────────────────────────────────────
    HTML(content) 마커는 마커마다 DOM이 생겨서 수백 개가 깔리면 확대/축소 때
-   재배치 비용이 커진다. 이미지 아이콘은 1개 노드로 끝나므로 SVG를 주소로 만들어 쓴다. */
-/* 머리를 크게, 꼬리를 짧게 잡아 뭉툭하고 둥근 물방울을 만든다.
+   재배치 비용이 커진다. 이미지 아이콘은 1개 노드로 끝나므로 SVG를 주소로 만들어 쓴다.
+
+   머리를 크게, 꼬리를 짧게 잡아 뭉툭하고 둥근 물방울을 만든다.
    반지름 15.5 원의 중심 (18,18)에서 끝점 (18,40.5)로 접선을 그은 모양이라,
    머리와 전체 높이의 비가 0.83으로 시안의 둥근 핀과 같다.
    (꼬리를 길게 빼면 뾰족하고 날카로워 보인다) */
@@ -371,9 +369,9 @@ naver.maps.Event.addListener(map, 'click', function(e) {
     closeSheet();
 });
 
-// 길게 누르면 바로 우리집을 옮긴다. (PC에서는 오른쪽 클릭)
-naver.maps.Event.addListener(map, 'longtap', function(e) { setHome(e.coord); });
-naver.maps.Event.addListener(map, 'rightclick', function(e) { setHome(e.coord); });
+/* 길게 누르기(longtap)로도 집을 옮길 수 있게 해봤지만, 기기에 따라 지도가
+   그 동작을 드래그 시작으로 먹어버려 반응하지 않는다. 되는지 안 되는지
+   확신할 수 없는 조작은 두지 않는다. 집은 버튼으로만 정한다. */
 
 /* ── 네이버 길찾기 연결 ────────────────────────────────────────
    소요시간을 직접 계산하지 않고 출발지·도착지 좌표만 네이버에 넘긴다. (API 키·요금 없음)
@@ -521,10 +519,16 @@ function setHome(coord) {
 }
 
 function updateHomeUI() {
-    var has = !!homePosition;
-    document.getElementById('homeBtn').classList.toggle('set', has);
-    document.getElementById('fDistWrap').style.display = has ? '' : 'none';
-    document.getElementById('fSetHome').classList.toggle('show', !has);
+    document.getElementById('homeBtn').classList.toggle('set', !!homePosition);
+}
+
+function clearHome() {
+    homePosition = null;
+    saveHome();
+    renderHome();
+    updateHomeUI();
+    if (selectedEntry) fillSheet(selectedEntry);
+    toast('우리집 위치를 지웠어요. 다시 누르면 정할 수 있어요.');
 }
 
 /* ── 시트 ─────────────────────────────────────────────────────
@@ -646,18 +650,19 @@ function fillSheet(entry) {
         return '<span class="badge ' + b.c + '">' + b.t + '</span>';
     }).join('');
 
-    // 거리는 직선거리만 적는다. 시간으로 환산하면 도로 사정을 반영하지 못한 값을
-    // 정확한 척 보여주게 되어, 한 번 어긋나면 나머지 정보까지 못 믿게 된다.
-    var km = distanceTo(s);
-    if (km === null) {
-        document.getElementById('sCommute').textContent = '우리집 위치를 정해보세요';
-        document.getElementById('sCommuteNote').textContent = '학교까지의 거리를 바로 확인할 수 있어요.';
-        document.getElementById('sSetHome').textContent = '설정';
-    } else {
-        document.getElementById('sCommute').textContent = '우리집에서 직선 ' + km.toFixed(1) + 'km';
+    // 직선거리는 적지 않는다. 대구는 강과 산 때문에 직선거리와 실제 경로가
+    // 한쪽으로 크게 어긋나서, 학교를 고르는 근거로 쓸 수 없다.
+    // 이 자리는 나중에 실제 운전 소요시간이 들어올 자리다.
+    if (homePosition) {
+        document.getElementById('sCommute').textContent = '우리집에서 출발';
         document.getElementById('sCommuteNote').textContent =
-            '실제 이동거리·소요시간은 아래 길찾기로 확인하세요.';
+            '길찾기를 누르면 우리집이 출발지로 채워집니다.';
         document.getElementById('sSetHome').textContent = '변경';
+    } else {
+        document.getElementById('sCommute').textContent = '우리집을 정해두면 편해요';
+        document.getElementById('sCommuteNote').textContent =
+            '길찾기 출발지가 자동으로 채워집니다.';
+        document.getElementById('sSetHome').textContent = '설정';
     }
 
     var total = s['class_total'], reg = s['class_regular'], sp = s['class_special'];
@@ -819,8 +824,7 @@ var DEFAULTS = {
     research: '미설정',
     ib: '미설정',
     future: '미설정',
-    mode: 'and',
-    maxKm: 0            // 0이면 거리 제한 없음
+    mode: 'and'
 };
 var filters = JSON.parse(JSON.stringify(DEFAULTS));
 
@@ -869,7 +873,6 @@ function activeFilterCount() {
     if (filters.districts.length !== DISTRICTS.length) n++;
     if (filters.grades.length !== GRADES.length) n++;
     if (filters.minClass > 1) n++;
-    if (homePosition && filters.maxKm > 0) n++;
     if (filters.research !== '미설정') n++;
     if (filters.ib !== '미설정') n++;
     if (filters.future !== '미설정') n++;
@@ -918,26 +921,17 @@ classRange.addEventListener('input', function() {
 });
 classRange.addEventListener('change', applyFilters);
 
-// 21은 '제한 없음' 자리다. 슬라이더 끝을 그 뜻으로 쓰면 칸을 따로 안 만들어도 된다.
-var distRange = document.getElementById('fDist');
-function showDistValue() {
-    filters.maxKm = parseInt(distRange.value, 10) >= 21 ? 0 : parseInt(distRange.value, 10);
-    document.getElementById('fDistVal').textContent =
-        filters.maxKm === 0 ? '전체' : filters.maxKm + 'km';
-    updateFilterBadge();
-}
-distRange.addEventListener('input', showDistValue);
-distRange.addEventListener('change', applyFilters);
 
+/* 집 버튼은 세 상태를 오간다.
+   없음 → 찍기 시작 / 찍는 중 → 취소 / 있음 → 지움
+   옮기는 것은 시트의 '변경'으로 한 번에 된다. */
 document.getElementById('homeBtn').addEventListener('click', function() {
-    if (pickingHome) { cancelPickHome(); return; }
-    if (!homePosition) { startPickHome(); return; }
-    map.setCenter(new naver.maps.LatLng(homePosition.lat, homePosition.lng));
-    toast('우리집. 지도를 길게 누르면 위치를 바꿀 수 있어요.');
+    if (pickingHome) cancelPickHome();
+    else if (homePosition) clearHome();
+    else startPickHome();
 });
 document.getElementById('pickCancel').addEventListener('click', cancelPickHome);
 document.getElementById('sSetHome').addEventListener('click', startPickHome);
-document.getElementById('fSetHome').addEventListener('click', startPickHome);
 
 function applyFilters() {
     var matched = [];
@@ -951,11 +945,6 @@ function applyFilters() {
 
         var total = parseInt(data['class_total'], 10);
         if (!isNaN(total) && total < filters.minClass) isMatch = false;
-
-        if (isMatch && homePosition && filters.maxKm > 0) {
-            var km = distanceTo(data);
-            if (km !== null && km > filters.maxKm) isMatch = false;
-        }
 
         if (isMatch) {
             var activeCount = 0, passCount = 0;
@@ -1005,8 +994,6 @@ function resetFilters() {
     filters = JSON.parse(JSON.stringify(DEFAULTS));
     classRange.value = 1;
     document.getElementById('fClassVal').textContent = '전체';
-    distRange.value = 21;
-    document.getElementById('fDistVal').textContent = '전체';
     renderChips();
     updateFilterBadge();
     applyFilters();
