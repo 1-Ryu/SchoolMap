@@ -365,7 +365,15 @@ naver.maps.Event.addListener(map, 'idle', function() {
     renderMarkers();
     showBoundaries(boundaryOn);
 });
-naver.maps.Event.addListener(map, 'click', function() { closePanels(); closeSheet(); });
+naver.maps.Event.addListener(map, 'click', function(e) {
+    if (pickingHome) { setHome(e.coord); return; }
+    closePanels();
+    closeSheet();
+});
+
+// 길게 누르면 바로 우리집을 옮긴다. (PC에서는 오른쪽 클릭)
+naver.maps.Event.addListener(map, 'longtap', function(e) { setHome(e.coord); });
+naver.maps.Event.addListener(map, 'rightclick', function(e) { setHome(e.coord); });
 
 /* ── 네이버 길찾기 연결 ────────────────────────────────────────
    소요시간을 직접 계산하지 않고 출발지·도착지 좌표만 네이버에 넘긴다. (API 키·요금 없음)
@@ -419,6 +427,104 @@ function toast(msg) {
     el.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function() { el.classList.remove('show'); }, 2400);
+}
+
+/* ── 우리집 위치 ──────────────────────────────────────────────
+   좌표는 브라우저에만 저장한다. 서버에 올리지 않으니 로그인도 필요 없고,
+   집 주소를 우리가 보관하지도 않는다. 대신 기기마다 따로 저장되고,
+   브라우저 데이터를 지우면 사라진다. */
+var HOME_KEY = 'schoolmap.home';
+var homeMarker = null;
+var pickingHome = false;
+
+function loadHome() {
+    try {
+        var v = JSON.parse(localStorage.getItem(HOME_KEY));
+        if (v && isFinite(v.lat) && isFinite(v.lng)) homePosition = v;
+    } catch (e) { /* 저장소를 못 쓰는 브라우저면 그냥 없는 것으로 둔다 */ }
+}
+
+function saveHome() {
+    try {
+        if (homePosition) localStorage.setItem(HOME_KEY, JSON.stringify(homePosition));
+        else localStorage.removeItem(HOME_KEY);
+    } catch (e) {}
+}
+
+/* 직선거리(하버사인). 소요시간으로 환산하지 않는다 —
+   도로 우회·신호·정체를 반영하지 못해 틀린 값을 정확한 척 보여주게 된다. */
+function distanceKm(a, b) {
+    var R = 6371, toRad = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * toRad, dLng = (b.lng - a.lng) * toRad;
+    var la1 = a.lat * toRad, la2 = b.lat * toRad;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+function distanceTo(data) {
+    if (!homePosition) return null;
+    return distanceKm(homePosition, { lat: data['latitude'], lng: data['longitude'] });
+}
+
+var HOME_ICON = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 36 44">' +
+    '<path d="M6.76 28.68A15.5 15.5 0 1 1 29.24 28.68L18 40.5Z" fill="#3E3A34" ' +
+        'stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round"/>' +
+    '<path d="M11.5 18.2 18 12.5l6.5 5.7V25a.8.8 0 0 1-.8.8h-11a.8.8 0 0 1-.8-.8z" ' +
+        'fill="none" stroke="#ffffff" stroke-width="2.1" stroke-linejoin="round"/></svg>');
+
+function renderHome() {
+    if (!homePosition) {
+        if (homeMarker) { homeMarker.setMap(null); homeMarker = null; }
+        return;
+    }
+    var pos = new naver.maps.LatLng(homePosition.lat, homePosition.lng);
+    if (homeMarker) {
+        homeMarker.setPosition(pos);
+    } else {
+        homeMarker = new naver.maps.Marker({
+            position: pos, map: map, zIndex: 300, title: '우리집',
+            icon: {
+                url: HOME_ICON,
+                size: new naver.maps.Size(40, 48),
+                scaledSize: new naver.maps.Size(40, 48),
+                anchor: new naver.maps.Point(20, 46)
+            }
+        });
+    }
+}
+
+function startPickHome() {
+    pickingHome = true;
+    document.body.classList.add('picking');
+    document.getElementById('pickbar').classList.add('show');
+    closePanels();
+    closeSheet();
+}
+
+function cancelPickHome() {
+    pickingHome = false;
+    document.body.classList.remove('picking');
+    document.getElementById('pickbar').classList.remove('show');
+}
+
+function setHome(coord) {
+    homePosition = { lat: coord.lat(), lng: coord.lng() };
+    saveHome();
+    renderHome();
+    cancelPickHome();
+    updateHomeUI();
+    applyFilters();
+    if (selectedEntry) fillSheet(selectedEntry);
+    toast('우리집 위치를 저장했어요. 길게 눌러 언제든 바꿀 수 있어요.');
+}
+
+function updateHomeUI() {
+    var has = !!homePosition;
+    document.getElementById('homeBtn').classList.toggle('set', has);
+    document.getElementById('fDistWrap').style.display = has ? '' : 'none';
+    document.getElementById('fSetHome').classList.toggle('show', !has);
 }
 
 /* ── 시트 ─────────────────────────────────────────────────────
@@ -539,6 +645,20 @@ function fillSheet(entry) {
     document.getElementById('sBadges').innerHTML = badges.map(function(b) {
         return '<span class="badge ' + b.c + '">' + b.t + '</span>';
     }).join('');
+
+    // 거리는 직선거리만 적는다. 시간으로 환산하면 도로 사정을 반영하지 못한 값을
+    // 정확한 척 보여주게 되어, 한 번 어긋나면 나머지 정보까지 못 믿게 된다.
+    var km = distanceTo(s);
+    if (km === null) {
+        document.getElementById('sCommute').textContent = '우리집 위치를 정해보세요';
+        document.getElementById('sCommuteNote').textContent = '학교까지의 거리를 바로 확인할 수 있어요.';
+        document.getElementById('sSetHome').textContent = '설정';
+    } else {
+        document.getElementById('sCommute').textContent = '우리집에서 직선 ' + km.toFixed(1) + 'km';
+        document.getElementById('sCommuteNote').textContent =
+            '실제 이동거리·소요시간은 아래 길찾기로 확인하세요.';
+        document.getElementById('sSetHome').textContent = '변경';
+    }
 
     var total = s['class_total'], reg = s['class_regular'], sp = s['class_special'];
     document.getElementById('sStats').innerHTML =
@@ -699,7 +819,8 @@ var DEFAULTS = {
     research: '미설정',
     ib: '미설정',
     future: '미설정',
-    mode: 'and'
+    mode: 'and',
+    maxKm: 0            // 0이면 거리 제한 없음
 };
 var filters = JSON.parse(JSON.stringify(DEFAULTS));
 
@@ -748,6 +869,7 @@ function activeFilterCount() {
     if (filters.districts.length !== DISTRICTS.length) n++;
     if (filters.grades.length !== GRADES.length) n++;
     if (filters.minClass > 1) n++;
+    if (homePosition && filters.maxKm > 0) n++;
     if (filters.research !== '미설정') n++;
     if (filters.ib !== '미설정') n++;
     if (filters.future !== '미설정') n++;
@@ -796,6 +918,27 @@ classRange.addEventListener('input', function() {
 });
 classRange.addEventListener('change', applyFilters);
 
+// 21은 '제한 없음' 자리다. 슬라이더 끝을 그 뜻으로 쓰면 칸을 따로 안 만들어도 된다.
+var distRange = document.getElementById('fDist');
+function showDistValue() {
+    filters.maxKm = parseInt(distRange.value, 10) >= 21 ? 0 : parseInt(distRange.value, 10);
+    document.getElementById('fDistVal').textContent =
+        filters.maxKm === 0 ? '전체' : filters.maxKm + 'km';
+    updateFilterBadge();
+}
+distRange.addEventListener('input', showDistValue);
+distRange.addEventListener('change', applyFilters);
+
+document.getElementById('homeBtn').addEventListener('click', function() {
+    if (pickingHome) { cancelPickHome(); return; }
+    if (!homePosition) { startPickHome(); return; }
+    map.setCenter(new naver.maps.LatLng(homePosition.lat, homePosition.lng));
+    toast('우리집. 지도를 길게 누르면 위치를 바꿀 수 있어요.');
+});
+document.getElementById('pickCancel').addEventListener('click', cancelPickHome);
+document.getElementById('sSetHome').addEventListener('click', startPickHome);
+document.getElementById('fSetHome').addEventListener('click', startPickHome);
+
 function applyFilters() {
     var matched = [];
 
@@ -808,6 +951,11 @@ function applyFilters() {
 
         var total = parseInt(data['class_total'], 10);
         if (!isNaN(total) && total < filters.minClass) isMatch = false;
+
+        if (isMatch && homePosition && filters.maxKm > 0) {
+            var km = distanceTo(data);
+            if (km !== null && km > filters.maxKm) isMatch = false;
+        }
 
         if (isMatch) {
             var activeCount = 0, passCount = 0;
@@ -857,6 +1005,8 @@ function resetFilters() {
     filters = JSON.parse(JSON.stringify(DEFAULTS));
     classRange.value = 1;
     document.getElementById('fClassVal').textContent = '전체';
+    distRange.value = 21;
+    document.getElementById('fDistVal').textContent = '전체';
     renderChips();
     updateFilterBadge();
     applyFilters();
@@ -880,6 +1030,9 @@ document.getElementById('resetBtn').addEventListener('click', function() {
     toast('조건을 모두 해제했습니다.');
 });
 
+loadHome();
+renderHome();
+updateHomeUI();
 renderChips();
 updateFilterBadge();
 settleSheet(false, false);
