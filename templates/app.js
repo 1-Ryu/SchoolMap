@@ -566,8 +566,11 @@ function drawRoute(path) {
         return new naver.maps.LatLng(c[1], c[0]);
     });
 
-    [{ color: '#ffffff', weight: 9, z: 60 },
-     { color: '#B84A22', weight: 5, z: 61 }].forEach(function(s) {
+    // 더 굵게 하지는 않는다. 유턴처럼 같은 길을 왕복하는 구간에서는 가는 길과
+    // 오는 길이 몇 픽셀 차이로 나란히 놓이는데, 선이 두꺼울수록 둘이 하나로
+    // 뭉쳐 보인다. 굵기로는 왕복을 드러낼 수 없고 오히려 덮어버린다.
+    [{ color: '#ffffff', weight: 11, z: 60 },
+     { color: '#B84A22', weight: 6.5, z: 61 }].forEach(function(s) {
         routeLines.push(new naver.maps.Polyline({
             map: map, path: pts, zIndex: s.z,
             strokeColor: s.color, strokeWeight: s.weight,
