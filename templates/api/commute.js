@@ -82,7 +82,10 @@ module.exports = async function handler(req, res) {
         res.status(200).json({
             ok: true,
             minutes: Math.max(1, Math.round(route.summary.duration / 60000)),
-            km: Math.round(route.summary.distance / 100) / 10
+            km: Math.round(route.summary.distance / 100) / 10,
+            // 경로 좌표는 [경도, 위도] 목록이다. 점이 수백 개라 그대로 그리면
+            // 무거우므로, 화면에 올릴 때 솎아낸다. (app.js의 simplifyRing)
+            path: route.path || []
         });
     } catch (err) {
         res.status(200).json({ ok: false, reason: 'fetch-failed' });

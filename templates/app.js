@@ -363,10 +363,14 @@ naver.maps.Event.addListener(map, 'idle', function() {
     renderMarkers();
     showBoundaries(boundaryOn);
 });
+/* 시트를 닫아도 경로선은 남긴다. 폰에서는 시트가 화면을 거의 덮어서,
+   닫은 뒤라야 비로소 길을 볼 수 있기 때문이다.
+   지도 빈 곳을 누르는 것은 '그만 보겠다'는 뜻이라 그때 지운다. */
 naver.maps.Event.addListener(map, 'click', function(e) {
     if (pickingHome) { setHome(e.coord); return; }
     closePanels();
     closeSheet();
+    clearRoute();
 });
 
 /* 길게 누르기(longtap)로도 집을 옮길 수 있게 해봤지만, 기기에 따라 지도가
@@ -513,9 +517,7 @@ function setHome(coord) {
     renderHome();
     cancelPickHome();
     updateHomeUI();
-    applyFilters();
     if (selectedEntry) fillSheet(selectedEntry);
-    toast('우리집 위치를 저장했어요. 길게 눌러 언제든 바꿀 수 있어요.');
 }
 
 function updateHomeUI() {
@@ -530,6 +532,35 @@ var commuteSeq = 0;
 
 function homeKey() {
     return homePosition ? homePosition.lat.toFixed(5) + ',' + homePosition.lng.toFixed(5) : '';
+}
+
+/* 경로선은 두 겹으로 그린다. 흰 선을 밑에 깔아야 도로 위에서도 경계가 보인다.
+   지도 앱들이 쓰는 방식이고, 한 겹만 그리면 비슷한 색 도로에 묻힌다. */
+var routeLines = [];
+
+function clearRoute() {
+    routeLines.forEach(function(l) { l.setMap(null); });
+    routeLines = [];
+}
+
+function drawRoute(path) {
+    clearRoute();
+    if (!path || path.length < 2) return;
+
+    // 경계선에서 배운 것과 같다. 점이 많으면 지도를 움직일 때마다 다시 그리느라
+    // 무거워진다. 화면에서 구분되지 않을 만큼(약 22m) 솎아낸다.
+    var pts = simplifyRing(path, SIMPLIFY_TOLERANCE).map(function(c) {
+        return new naver.maps.LatLng(c[1], c[0]);
+    });
+
+    [{ color: '#ffffff', weight: 9, z: 60 },
+     { color: '#B84A22', weight: 5, z: 61 }].forEach(function(s) {
+        routeLines.push(new naver.maps.Polyline({
+            map: map, path: pts, zIndex: s.z,
+            strokeColor: s.color, strokeWeight: s.weight,
+            strokeOpacity: 0.95, strokeLineCap: 'round', strokeLineJoin: 'round'
+        }));
+    });
 }
 
 function showCommute(v) {
@@ -554,10 +585,12 @@ function fetchCommute(entry) {
     if (commuteCache[key] !== undefined) {
         commuteSeq++;                     // 늦게 도착할 이전 응답을 무시시킨다
         showCommute(commuteCache[key]);
+        drawRoute(commuteCache[key] && commuteCache[key].path);
         return;
     }
 
     var seq = ++commuteSeq;
+    clearRoute();
     document.getElementById('sCommute').textContent = '소요시간 확인 중…';
     document.getElementById('sCommuteNote').textContent = '우리집에서 자동차로';
 
@@ -567,9 +600,10 @@ function fetchCommute(entry) {
         .then(function(d) {
             // 기다리는 사이 다른 학교를 열었으면 그 화면을 덮어쓰지 않는다.
             if (seq !== commuteSeq) return;
-            var v = (d && d.ok) ? { minutes: d.minutes, km: d.km } : null;
+            var v = (d && d.ok) ? { minutes: d.minutes, km: d.km, path: d.path } : null;
             commuteCache[key] = v;
             showCommute(v);
+            drawRoute(v && v.path);
         })
         .catch(function() {
             if (seq === commuteSeq) showCommute(null);
@@ -580,6 +614,7 @@ function clearHome() {
     homePosition = null;
     saveHome();
     renderHome();
+    clearRoute();
     updateHomeUI();
     if (selectedEntry) fillSheet(selectedEntry);
     toast('우리집 위치를 지웠어요. 다시 누르면 정할 수 있어요.');
@@ -1037,7 +1072,7 @@ function applyFilters() {
     visibleEntries = matched;
 
     // 걸러진 학교의 시트가 열려 있으면 닫는다.
-    if (selectedEntry && matched.indexOf(selectedEntry) === -1) closeSheet();
+    if (selectedEntry && matched.indexOf(selectedEntry) === -1) { closeSheet(); clearRoute(); }
 
     renderMarkers(true);
 }
