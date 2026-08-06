@@ -29,6 +29,21 @@ module.exports = async function handler(req, res) {
         return;
     }
 
+    /* Sensitive로 저장한 값은 대시보드에서 다시 볼 수 없어, 무엇이 들어갔는지
+       확인할 방법이 없다. 비밀을 드러내지 않고 확인만 할 수 있도록
+       Client ID 앞 네 글자와 두 값의 길이만 알려준다.
+       (원인을 잡으면 이 부분은 걷어낸다) */
+    if (q.check === '1') {
+        res.status(200).json({
+            idHead: String(id).slice(0, 4),
+            idLen: String(id).length,
+            secretLen: String(secret).length,
+            idHasSpace: /^\s|\s$/.test(id),
+            secretHasSpace: /^\s|\s$/.test(secret)
+        });
+        return;
+    }
+
     // 좌표는 '경도,위도' 순서다. 위도·경도 순으로 넣으면 엉뚱한 곳을 찾는다.
     var url = ENDPOINT +
         '?start=' + slng + ',' + slat +
