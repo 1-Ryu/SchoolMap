@@ -42,11 +42,24 @@ module.exports = async function handler(req, res) {
                 'x-ncp-apigw-api-key': secret
             }
         });
-        var data = await r.json();
+        var raw = await r.text();
+        var data;
+        try { data = JSON.parse(raw); } catch (e) { data = null; }
+
         var route = data && data.route && data.route.traoptimal && data.route.traoptimal[0];
 
         if (!route || !route.summary) {
-            res.status(200).json({ ok: false, reason: 'no-route', code: data && data.code });
+            // 왜 실패했는지 알아야 고칠 수 있다. 네이버가 돌려주는 오류 설명에는
+            // 비밀 키가 들어 있지 않다. (원인을 잡으면 이 부분은 걷어낸다)
+            res.status(200).json({
+                ok: false,
+                reason: 'no-route',
+                status: r.status,
+                code: data && (data.code !== undefined ? data.code : undefined),
+                message: data && data.message,
+                error: data && data.error,
+                raw: raw ? raw.slice(0, 300) : ''
+            });
             return;
         }
 
