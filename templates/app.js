@@ -798,12 +798,12 @@ function fillSheet(entry) {
     var head = parseInt(s['head_teacher'], 10);
 
     document.getElementById('sStats').innerHTML =
+        '<div class="stat"><div class="k">급지</div><div class="v">' +
+            (has(s['grade_class']) ? s['grade_class'] : '—') + '</div></div>' +
         '<div class="stat"><div class="k">총 학급(특수)</div><div class="v">' +
             (clsSum + special) + '<u>학급(' + special + ')</u></div></div>' +
         '<div class="stat"><div class="k">보직교사</div><div class="v">' +
-            (isFinite(head) ? head : '—') + '<u>명</u></div></div>' +
-        '<div class="stat"><div class="k">급지</div><div class="v">' +
-            (has(s['grade_class']) ? s['grade_class'] : '—') + '</div></div>';
+            (isFinite(head) ? head : '—') + '<u>명</u></div></div>';
 
     // 소수점이 0이면 떼어낸다. 18.0이 아니라 18로 적는다.
     function avg(students, classes) {
@@ -816,7 +816,7 @@ function fillSheet(entry) {
     for (var i = 0; i < 6; i++) {
         var a = avg(stu[i], cls[i]);
         body += '<tr><td>' + (i + 1) + '학년</td>' +
-                '<td class="' + (cls[i] === 0 ? 'none' : (cls[i] === 1 ? 'alone' : '')) + '">' +
+                '<td class="' + (cls[i] === 0 ? 'none' : '') + '">' +
                     (cls[i] === 0 ? '없음' : cls[i]) + '</td>' +
                 '<td class="' + (a ? '' : 'none') + '">' + (a || '—') + '</td></tr>';
     }
